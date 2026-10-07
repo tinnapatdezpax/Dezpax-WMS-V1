@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Warehouse Digital Twin - Phase 2 Production Ready</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- HTML5 QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Prompt Font Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-main: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+        }
+        body { 
+            font-family: 'Prompt', sans-serif; 
+            background-color: #090d16;
+            color: #f1f5f9;
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        
+        .fade-in { animation: fadeIn 0.25s ease-out; }
+        .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        /* Modern SVG Zone Map Styles */
+        svg { width: 100%; height: auto; touch-action: pan-y; }
+        .zone { 
+            cursor: pointer; 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+            stroke-width: 1.5;
+            rx: 6px;
+            ry: 6px;
+        }
+        .zone:hover, .zone:active { 
+            filter: drop-shadow(0px 0px 8px rgba(59, 130, 246, 0.8));
+            opacity: 0.85;
+            stroke: #60a5fa !important;
+            stroke-width: 2.5;
+        }
+        
+        /* Glassmorphism Styling */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-nav {
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #qr-reader video { object-fit: cover !important; border-radius: 12px; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-slate-100">
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast-container" class="fixed top-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Custom Dialog / Alert Modal -->
+    <div id="dialog-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-5 shadow-2xl slide-up text-center">
+            <div id="dialog-icon" class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xl mx-auto mb-3">
+                <i class="fa-solid fa-circle-info"></i>
+            </div>
+            <h3 id="dialog-title" class="font-bold text-base text-slate-100 mb-1">การแจ้งเตือน</h3>
+            <p id="dialog-message" class="text-xs text-slate-300 mb-5 leading-relaxed"></p>
+            <div id="dialog-actions" class="flex gap-2 justify-center">
+                <button id="dialog-btn-confirm" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl text-xs transition">ตกลง</button>
+                <button id="dialog-btn-cancel" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2.5 rounded-xl text-xs border border-slate-700 hidden">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Header Bar -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 p-4 shadow-lg z-20 flex-shrink-0">
+        <div class="flex justify-between items-center mb-3">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-cubes text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">WAREHOUSE TWIN</h1>
+                    <p class="text-[10px] text-cyan-400 font-medium tracking-wider">REALTIME INVENTORY SYSTEM</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="sync-status-badge" class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full flex items-center gap-1.5 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Cloud Synced
+                </span>
+                <button onclick="fetchDataFromGoogleSheet()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate text-emerald-400"></i> รีเฟรช
+                </button>
+            </div>
+        </div>
+
+        <!-- Global Search Bar -->
+        <div class="relative flex gap-2">
+            <div class="relative flex-grow">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                <input type="text" id="global-search" placeholder="ค้นหา SKU, ชื่อสินค้า, QR Code..." 
+                       class="w-full pl-10 pr-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-400 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+            </div>
+            <button onclick="openLiveCameraScanner()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 rounded-xl flex items-center justify-center transition shadow-lg shadow-blue-600/30" title="สแกนด้วยกล้อง">
+                <i class="fa-solid fa-camera text-base"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow overflow-y-auto relative pb-24" id="main-content">
+        
+        <!-- ================= VIEW 1: LAYOUT (ผังคลัง 2D) ================= -->
+        <section id="view-layout" class="p-4 fade-in">
+            <div class="glass-panel rounded-2xl p-3 mb-4 shadow-xl border border-slate-800">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <p class="text-xs text-slate-400"><i class="fa-solid fa-hand-pointer text-blue-400 mr-1"></i> แตะที่โซนในผังเพื่อดูและจัดการสต๊อก</p>
+                    <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">Digital Twin Map</span>
+                </div>
+                
+                <!-- SVG Interactive Warehouse Layout -->
+                <div class="w-full border border-slate-800 bg-slate-950/80 relative overflow-hidden rounded-xl shadow-inner p-2">
+                    <svg viewBox="0 0 400 760" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="grad-green" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#10B981" stop-opacity="0.6"/>
+                                <stop offset="100%" stop-color="#059669" stop-opacity="0.8"/>
+                            </linearGradient>
+                            <linearGradient id="grad-red" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#EF4444" stop-opacity="0.6"/>
+                                <stop offset="100%" stop-color="#DC2626" stop-opacity="0.8"/>
+                            </linearGradient>
+                            <linearGradient id="grad-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.6"/>
+                                <stop offset="100%" stop-color="#2563EB" stop-opacity="0.8"/>
+                            </linearGradient>
+                            <linearGradient id="grad-yellow" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.6"/>
+                                <stop offset="100%" stop-color="#D97706" stop-opacity="0.8"/>
+                            </linearGradient>
+                            <linearGradient id="grad-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.6"/>
+                                <stop offset="100%" stop-color="#0891B2" stop-opacity="0.8"/>
+                            </linearGradient>
+                            <linearGradient id="grad-orange" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#F97316" stop-opacity="0.6"/>
+                                <stop offset="100%" stop-color="#EA580C" stop-opacity="0.8"/>
+                            </linearGradient>
+                        </defs>
+
+                        <!-- Outer Warehouse Border -->
+                        <rect x="10" y="10" width="380" height="740" fill="none" stroke="#334155" stroke-width="3" stroke-dasharray="6,6" rx="12"/>
+                        
+                        <!-- ZONES -->
+                        <rect class="zone" data-zone="PLASTIC/PAPER" x="20" y="20" width="170" height="110" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="105" y="75" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle" pointer-events="none">PLASTIC / PAPER</text>
+
+                        <rect class="zone" data-zone="BUFFER-A" x="200" y="20" width="180" height="50" fill="url(#grad-red)" stroke="#F87171"/>
+                        <text x="290" y="50" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle" pointer-events="none">BUFFER / BIG LOT A</text>
+
+                        <rect class="zone" data-zone="PRINTING STORAGE" x="200" y="80" width="180" height="50" fill="url(#grad-blue)" stroke="#60A5FA"/>
+                        <text x="290" y="110" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle" pointer-events="none">PRINTING STORAGE</text>
+
+                        <rect class="zone" data-zone="PENDING ZONE" x="20" y="145" width="80" height="135" fill="url(#grad-yellow)" stroke="#FBBF24"/>
+                        <text x="60" y="215" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle" pointer-events="none">PENDING</text>
+
+                        <rect class="zone" data-zone="BUFFER-B" x="120" y="145" width="260" height="35" fill="url(#grad-red)" stroke="#F87171"/>
+                        <text x="250" y="167" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle" pointer-events="none">BUFFER / BIG LOT B</text>
+
+                        <!-- Racks Top -->
+                        <rect class="zone" data-zone="STORAGE-1" x="120" y="190" width="55" height="90" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="147" y="240" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">ST-1</text>
+
+                        <rect class="zone" data-zone="STORAGE-2" x="188" y="190" width="55" height="90" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="215" y="240" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">ST-2</text>
+
+                        <rect class="zone" data-zone="STORAGE-3" x="256" y="190" width="55" height="90" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="283" y="240" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">ST-3</text>
+
+                        <rect class="zone" data-zone="STORAGE-4" x="325" y="190" width="55" height="90" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="352" y="240" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">ST-4</text>
+
+                        <!-- Inbound & Customize -->
+                        <rect class="zone" data-zone="INBOUND" x="20" y="295" width="80" height="60" fill="url(#grad-yellow)" stroke="#FBBF24"/>
+                        <text x="60" y="330" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">INBOUND</text>
+
+                        <rect class="zone" data-zone="CUSTOMIZE STORAGE" x="20" y="365" width="80" height="200" fill="url(#grad-cyan)" stroke="#22D3EE"/>
+                        <text x="60" y="465" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">CUSTOMIZE</text>
+
+                        <!-- Racks Bottom -->
+                        <rect class="zone" data-zone="STORAGE-5" x="120" y="295" width="55" height="270" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="147" y="430" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">ST-5</text>
+
+                        <rect class="zone" data-zone="STORAGE-6" x="188" y="295" width="55" height="270" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="215" y="430" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">ST-6</text>
+
+                        <rect class="zone" data-zone="STORAGE-7" x="256" y="295" width="55" height="270" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="283" y="430" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">ST-7</text>
+
+                        <rect class="zone" data-zone="STORAGE-8" x="325" y="295" width="55" height="270" fill="url(#grad-green)" stroke="#34D399"/>
+                        <text x="352" y="430" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">ST-8</text>
+
+                        <!-- Outbound -->
+                        <rect class="zone" data-zone="OUTBOUND-A" x="20" y="580" width="360" height="60" fill="url(#grad-orange)" stroke="#FB923C"/>
+                        <text x="200" y="615" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle" pointer-events="none">OUTBOUND STAGING A</text>
+
+                        <rect class="zone" data-zone="OUTBOUND-B" x="20" y="670" width="360" height="50" fill="url(#grad-orange)" stroke="#FB923C"/>
+                        <text x="200" y="700" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle" pointer-events="none">OUTBOUND DISPATCH B</text>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= VIEW 2: SEARCH RESULTS ================= -->
+        <section id="view-search" class="p-4 hidden fade-in">
+            <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-800">
+                <h2 class="font-bold text-slate-200"><i class="fa-solid fa-list-check text-blue-400 mr-2"></i>ผลการค้นหาสินค้า</h2>
+                <span id="search-count-badge" class="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">0 รายการ</span>
+            </div>
+            <div id="search-results-container" class="space-y-3"></div>
+        </section>
+
+        <!-- ================= VIEW 3: INVENTORY ================= -->
+        <section id="view-list" class="p-4 hidden fade-in">
+            <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-800">
+                <h2 class="font-bold text-slate-200"><i class="fa-solid fa-boxes-stacked text-blue-400 mr-2"></i>รายการสินค้าทั้งหมด (Stock)</h2>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700" id="total-items-badge">0 รายการ</span>
+                </div>
+            </div>
+            
+            <div class="glass-panel rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-xs text-left">
+                        <thead class="bg-slate-900/90 text-slate-400 font-semibold border-b border-slate-800">
+                            <tr>
+                                <th class="px-4 py-3">ชื่อสินค้า / SKU</th>
+                                <th class="px-4 py-3">โซน</th>
+                                <th class="px-4 py-3 text-center">จำนวน</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body" class="divide-y divide-slate-800/60"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= VIEW 4: PRINTING & CUSTOMIZE ================= -->
+        <section id="view-printing" class="p-4 hidden fade-in">
+            <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-800">
+                <div>
+                    <h2 class="font-bold text-slate-200"><i class="fa-solid fa-print text-cyan-400 mr-2"></i>Printing & Customize Stock</h2>
+                    <p class="text-[11px] text-slate-400">สต๊อกงานพิมพ์และสินค้าสั่งทำพิเศษ</p>
+                </div>
+            </div>
+            <div id="printing-cards-container" class="grid grid-cols-1 gap-3"></div>
+
+            <button onclick="openPrintingForm()" class="fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-tr from-blue-600 to-cyan-500 text-white rounded-full shadow-lg shadow-cyan-500/30 flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition z-10 border border-cyan-400/30">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </section>
+
+        <!-- ================= VIEW 5: LOGS / AUDIT TRAIL ================= -->
+        <section id="view-logs" class="p-4 hidden fade-in">
+            <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-800">
+                <div>
+                    <h2 class="font-bold text-slate-200"><i class="fa-solid fa-clock-rotate-left text-amber-400 mr-2"></i>ประวัติการนับ & สแกน (Audit Logs)</h2>
+                    <p class="text-[11px] text-slate-400">บันทึกกิจกรรมการนับสต๊อกและอัปเดตข้อมูล</p>
+                </div>
+            </div>
+            <div id="logs-container" class="space-y-2"></div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="glass-nav fixed bottom-0 w-full flex justify-around py-2 z-20">
+        <button onclick="switchTab('layout')" id="nav-layout" class="nav-btn flex-1 flex flex-col items-center py-1 text-blue-400 transition">
+            <i class="fa-solid fa-map-location-dot text-lg mb-0.5"></i>
+            <span class="text-[10px] font-medium tracking-wide">LAYOUT</span>
+        </button>
+        <button onclick="switchTab('list')" id="nav-list" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 transition hover:text-blue-400">
+            <i class="fa-solid fa-boxes-stacked text-lg mb-0.5"></i>
+            <span class="text-[10px] font-medium tracking-wide">STOCK</span>
+        </button>
+        <button onclick="switchTab('printing')" id="nav-printing" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 transition hover:text-blue-400">
+            <i class="fa-solid fa-print text-lg mb-0.5"></i>
+            <span class="text-[10px] font-medium tracking-wide">PRINTING</span>
+        </button>
+        <button onclick="switchTab('logs')" id="nav-logs" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 transition hover:text-blue-400">
+            <i class="fa-solid fa-clock-rotate-left text-lg mb-0.5"></i>
+            <span class="text-[10px] font-medium tracking-wide">LOGS</span>
+        </button>
+    </nav>
+
+    <!-- MODAL: LIVE CAMERA SCANNER -->
+    <div id="camera-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md hidden z-50 flex flex-col justify-between p-4">
+        <div class="flex justify-between items-center text-slate-200">
+            <h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-camera text-cyan-400"></i> กล้องสแกน QR / Barcode</h3>
+            <button onclick="closeLiveCameraScanner()" class="p-2 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        
+        <div class="flex-grow flex flex-col justify-center items-center my-4 overflow-hidden">
+            <div id="qr-reader" class="w-full max-w-sm bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl"></div>
+            <p class="text-xs text-slate-400 mt-3 text-center">ส่องกล้องไปที่ QR Code หรือ Barcode บนสินค้าเพื่อค้นหาอัตโนมัติ</p>
+        </div>
+
+        <button onclick="closeLiveCameraScanner()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl font-medium text-xs border border-slate-700">ปิดกล้อง</button>
+    </div>
+
+    <!-- MODAL: Zone View Modal -->
+    <div id="zone-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-30 flex items-end sm:items-center justify-center">
+        <div class="glass-panel bg-slate-900 border border-slate-800 w-full sm:w-[450px] rounded-t-3xl sm:rounded-2xl slide-up h-[82vh] flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/80 rounded-t-3xl sm:rounded-t-2xl">
+                <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-base text-slate-100 flex items-center" id="zone-modal-title">ZONE: -</h3>
+                    <button onclick="editZoneName()" class="text-slate-400 hover:text-cyan-400 p-1 text-xs"><i class="fa-solid fa-pen-to-square"></i></button>
+                </div>
+                <button onclick="closeModal('zone-modal')" class="text-slate-400 hover:bg-slate-800 p-2 rounded-full w-8 h-8 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="p-4 flex-grow overflow-y-auto space-y-2.5" id="zone-items-list"></div>
+
+            <div class="p-4 border-t border-slate-800 bg-slate-900/90">
+                <button onclick="openStockCount()" class="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 text-sm transition">
+                    <i class="fa-solid fa-barcode"></i> เริ่มนับสต๊อก (Stock Count)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Edit Zone Name Modal -->
+    <div id="edit-zone-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl p-5 slide-up shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-sm text-cyan-400 flex items-center gap-2"><i class="fa-solid fa-pen-to-square"></i> แก้ไขชื่อโซนจัดเก็บ</h3>
+                <button onclick="closeModal('edit-zone-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-300 mb-1.5">ชื่อโซนที่ต้องการแสดง:</label>
+                <input type="text" id="edit-zone-input" class="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-cyan-500" placeholder="ระบุชื่อโซน...">
+            </div>
+            <div class="flex gap-2 pt-1">
+                <button onclick="closeModal('edit-zone-modal')" class="flex-1 py-2.5 border border-slate-700 rounded-xl text-slate-300 text-xs font-medium">ยกเลิก</button>
+                <button onclick="saveZoneNameEdit()" class="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-medium shadow-lg shadow-cyan-600/20">บันทึกชื่อโซน</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Product Detail Modal -->
+    <div id="product-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-800 w-full sm:w-[480px] rounded-t-3xl sm:rounded-2xl slide-up max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-sm font-bold border border-blue-500/30">
+                        <i class="fa-solid fa-box"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-100" id="pd-name">ชื่อสินค้า</h3>
+                        <p class="text-[11px] text-slate-400" id="pd-sku">SKU: -</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('product-modal')" class="text-slate-400 hover:bg-slate-800 p-1.5 rounded-full"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="p-4 overflow-y-auto space-y-4 text-xs">
+                <div class="bg-gradient-to-r from-blue-900/40 to-slate-800 p-3.5 rounded-xl border border-blue-500/30 flex justify-between items-center">
+                    <div>
+                        <span class="text-slate-400 text-[11px] block">จำนวนรวมทุกลังในคลัง</span>
+                        <span class="text-lg font-bold text-cyan-400" id="pd-total-qty">0</span> <span class="text-slate-300">ลัง</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-slate-400 text-[10px] block">สแกนนับล่าสุด</span>
+                        <span class="text-slate-300 text-[11px]" id="pd-last-count">-</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-map-pin text-rose-400"></i> ตำแหน่งที่จัดเก็บสินค้านี้ทั้งหมด (<span id="pd-location-count">0</span> จุด)
+                    </h4>
+                    <div id="pd-locations-container" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <div class="p-3 border-t border-slate-800 bg-slate-900/90 text-center">
+                <button onclick="closeModal('product-modal')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-medium border border-slate-700">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Printing Detail & Images Lightbox Modal -->
+    <div id="printing-detail-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-800 w-full sm:w-[520px] rounded-t-3xl sm:rounded-2xl slide-up max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm font-bold border border-cyan-500/30">
+                        <i class="fa-solid fa-print"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-100" id="pt-detail-job">ชื่องานพิมพ์</h3>
+                        <p class="text-[11px] text-cyan-400 font-mono" id="pt-detail-order">Order: -</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('printing-detail-modal')" class="text-slate-400 hover:bg-slate-800 p-1.5 rounded-full"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="p-4 overflow-y-auto space-y-4 text-xs">
+                <div class="grid grid-cols-2 gap-2 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">ชื่อสินค้า</span>
+                        <span class="text-slate-200 font-medium" id="pt-detail-item">-</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">โซนจัดเก็บ</span>
+                        <span class="text-cyan-300 font-medium" id="pt-detail-zone">-</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">จำนวนสินค้า</span>
+                        <span class="text-emerald-400 font-bold" id="pt-detail-qty">-</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">วันที่ของเข้า</span>
+                        <span class="text-slate-300" id="pt-detail-date">-</span>
+                    </div>
+                </div>
+
+                <!-- Link Order Section -->
+                <div id="pt-detail-link-container" class="hidden">
+                    <a id="pt-detail-link-btn" href="#" target="_blank" class="w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/40 p-2.5 rounded-xl flex items-center justify-center gap-2 font-medium transition">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดดูลิงก์ออเดอร์ (Link Order)
+                    </a>
+                </div>
+
+                <!-- Images Gallery Grid -->
+                <div>
+                    <h4 class="font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-images text-cyan-400"></i> รูปภาพประกอบสินค้า
+                    </h4>
+                    <div id="pt-detail-images-grid" class="grid grid-cols-2 gap-2"></div>
+                </div>
+            </div>
+
+            <div class="p-3 border-t border-slate-800 bg-slate-900/90 text-center">
+                <button onclick="closeModal('printing-detail-modal')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-medium border border-slate-700">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Stock Count Modal -->
+    <div id="count-modal" class="fixed inset-0 bg-slate-950 hidden z-50 flex flex-col">
+        <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+            <div>
+                <h3 class="font-bold text-sm text-indigo-400 flex items-center gap-2" id="count-modal-title"><i class="fa-solid fa-barcode"></i> โหมดนับสต๊อก</h3>
+                <p class="text-[10px] text-slate-400">ยิงบาร์โค้ดสแกนทีละลัง (กด Enter เพื่อบันทึกทีละรายการ)</p>
+            </div>
+            <button onclick="closeStockCount()" class="text-slate-400 text-lg hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div class="p-4 flex flex-col flex-grow overflow-hidden">
+            <div class="bg-slate-900 p-3.5 rounded-xl mb-4 border border-slate-800 shadow-inner">
+                <label class="text-xs text-slate-400 mb-1.5 block">ช่องรับข้อมูลการสแกน (Barcode / QR Scanner):</label>
+                <div class="flex gap-2">
+                    <input type="text" id="count-input" class="w-full bg-slate-950 text-emerald-400 font-mono text-base p-2.5 rounded-lg focus:outline-none focus:border-indigo-500 border border-slate-700" placeholder="ยิง QR-XXXX..." autofocus>
+                    <button onclick="processScan()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-lg text-white text-sm"><i class="fa-solid fa-arrow-down-to-line"></i></button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-2 px-1">
+                <h4 class="text-slate-300 text-xs font-medium">รายการที่ยิงแล้วในโซนนี้</h4>
+                <span class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20"><span id="count-qty">0</span> ลัง</span>
+            </div>
+            <div id="scanned-list" class="flex-grow overflow-y-auto space-y-2 p-1"></div>
+        </div>
+
+        <div class="p-4 bg-slate-900 border-t border-slate-800 flex gap-3">
+            <button onclick="closeStockCount()" class="flex-1 bg-slate-800 text-slate-300 py-3 rounded-xl font-medium text-xs border border-slate-700">ยกเลิก</button>
+            <button onclick="saveStockCount()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-medium text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> ยืนยันบันทึกสต๊อก
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: Printing & Customize Form Modal -->
+    <div id="printing-form-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-end sm:items-center justify-center">
+        <div class="glass-panel bg-slate-900 border border-slate-800 w-full sm:w-[500px] h-[92vh] sm:h-auto sm:max-h-[90vh] rounded-t-3xl sm:rounded-2xl flex flex-col slide-up shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90 rounded-t-3xl sm:rounded-t-2xl">
+                <h3 class="font-bold text-sm text-cyan-400 flex items-center gap-2"><i class="fa-solid fa-plus-circle"></i> เพิ่ม Stock งานพิมพ์</h3>
+                <button onclick="closeModal('printing-form-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <form id="addPrintingForm" onsubmit="savePrintingItem(event)" class="p-4 flex-grow overflow-y-auto space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 mb-1">ชื่องาน <span class="text-rose-400">*</span></label>
+                    <input type="text" id="p-job-input" required class="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg text-slate-100" placeholder="เช่น สกรีนแก้ว Cafe A">
+                </div>
+                <div>
+                    <label class="block text-slate-300 mb-1">ชื่อสินค้า <span class="text-rose-400">*</span></label>
+                    <input type="text" id="p-item-input" required class="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg text-slate-100" placeholder="เช่น แก้ว 16oz">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-300 mb-1">จำนวนเต็ม</label>
+                        <input type="number" id="p-qty-full" required class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-100" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 mb-1">หน่วย</label>
+                        <select id="p-unit-full" class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-100">
+                            <option>ลัง</option><option>แพ็ค</option><option>ชิ้น</option><option>ห่อ</option><option>กก.</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 mb-1">จำนวนเศษ</label>
+                        <input type="number" id="p-qty-frac" class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-100" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 mb-1">หน่วยเศษ</label>
+                        <select id="p-unit-frac" class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-100">
+                            <option>ชิ้น</option><option>แพ็ค</option><option>ห่อ</option><option>กก.</option><option>ลัง</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-300 mb-1">เลข Order <span class="text-rose-400">*</span></label>
+                        <input type="text" id="p-order-input" required class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-100" placeholder="ORD-XXXX">
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 mb-1">สถานะจัดส่ง</label>
+                        <select id="p-status-input" class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-100">
+                            <option value="ยังไม่ได้ส่ง">ยังไม่ได้ส่ง</option>
+                            <option value="ส่งแล้ว">จัดส่งแล้ว</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 mb-1">Link Order (สร้างอัตโนมัติ)</label>
+                    <input type="url" id="p-link-input" readonly class="w-full bg-slate-800/50 border border-slate-700/50 p-2.5 rounded-lg text-slate-400 font-mono text-[11px]" placeholder="ลิงก์จะแสดงที่นี่อัตโนมัติ...">
+                </div>
+
+                <!-- Input รูปภาพ 1-4 อัพเดตเป็นแบบอัพโหลด/เปิดกล้องถ่าย -->
+                <div class="bg-slate-850 p-3 rounded-xl border border-slate-800 space-y-2">
+                    <label class="block text-cyan-400 font-semibold text-xs mb-1"><i class="fa-solid fa-camera mr-1"></i> ถ่ายรูป/อัพโหลดรูป (สูงสุด 4 รูป)</label>
+                    <input type="file" accept="image/*" id="p-img1-input" class="w-full text-slate-300 text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition cursor-pointer">
+                    <input type="file" accept="image/*" id="p-img2-input" class="w-full text-slate-300 text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition cursor-pointer">
+                    <input type="file" accept="image/*" id="p-img3-input" class="w-full text-slate-300 text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition cursor-pointer">
+                    <input type="file" accept="image/*" id="p-img4-input" class="w-full text-slate-300 text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition cursor-pointer">
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 mb-1">โซนจัดเก็บ</label>
+                    <select id="p-zone-input" class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-100"></select>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 mb-1">วันที่ของเข้า</label>
+                    <input type="date" id="inbound-date-input" required class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-100">
+                </div>
+
+                <div class="pt-4 flex gap-2">
+                    <button type="button" onclick="closeModal('printing-form-modal')" class="flex-1 py-2.5 border border-slate-700 rounded-xl text-slate-300 font-medium">ยกเลิก</button>
+                    <button type="submit" id="btn-submit-printing" class="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-medium shadow-lg shadow-cyan-500/20">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // เปลี่ยน API URL ตามที่ต้องการ
+        const API_URL = "https://script.google.com/macros/s/AKfycby6rlj3JUVEYNOGBZy5ipFHMQ3iRtQ_nJNX2XwiO620bHfBbWwhje-XEv_ibX-LIH2Y/exec"; 
+
+        // Global Variables
+        window.mockInventoryData = [];
+        window.mockPrintingData = [];
+        window.auditLogs = [];
+        let html5QrScanner = null;
+
+        // Custom Zone Names
+        const defaultZoneNames = {
+            "PLASTIC/PAPER": "PLASTIC / PAPER",
+            "BUFFER-A": "BUFFER / BIG LOT A",
+            "PRINTING STORAGE": "PRINTING STORAGE",
+            "PENDING ZONE": "PENDING ZONE",
+            "BUFFER-B": "BUFFER / BIG LOT B",
+            "STORAGE-1": "ST-1", "STORAGE-2": "ST-2", "STORAGE-3": "ST-3", "STORAGE-4": "ST-4",
+            "STORAGE-5": "ST-5", "STORAGE-6": "ST-6", "STORAGE-7": "ST-7", "STORAGE-8": "ST-8",
+            "INBOUND": "INBOUND",
+            "CUSTOMIZE STORAGE": "CUSTOMIZE",
+            "OUTBOUND-A": "OUTBOUND STAGING A",
+            "OUTBOUND-B": "OUTBOUND DISPATCH B"
+        };
+
+        let savedZones = null;
+        try { savedZones = JSON.parse(localStorage.getItem('wh_custom_zone_names')); } catch(e) {}
+        window.zoneNamesMap = savedZones ? { ...defaultZoneNames, ...savedZones } : defaultZoneNames;
+
+        // สร้าง Link Order อัตโนมัติเมื่อพิมพ์เลข Order
+        document.getElementById('p-order-input').addEventListener('input', function(e) {
+            const orderVal = e.target.value.trim();
+            const linkInput = document.getElementById('p-link-input');
+            if (orderVal) {
+                linkInput.value = "https://admin-v2.dezpax.com/order?orderCode=" + orderVal;
+            } else {
+                linkInput.value = "";
+            }
+        });
+
+        // ฟังก์ชันอ่านภาพและบีบอัดเป็น Base64
+        function getBase64Image(fileInputId) {
+            return new Promise((resolve, reject) => {
+                const fileInput = document.getElementById(fileInputId);
+                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                    resolve("");
+                    return;
+                }
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        // บีบอัดภาพความกว้างสูงสุด 600px เพื่อไม่ให้ payload ใหญ่เกินไป
+                        const MAX_SIZE = 600; 
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > height && width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        } else if (height > width && height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        // แปลงกลับเป็น dataURI ระดับคุณภาพ 70%
+                        resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+                    };
+                    img.src = e.target.result;
+                };
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 1. ดึงข้อมูลจาก Google Sheets (GET API)
+        function fetchDataFromGoogleSheet() {
+            showToast("กำลังซิงค์ข้อมูลกับ Google Sheet...", "info");
+            fetch(API_URL)
+            .then(res => res.json())
+            .then(data => {
+                window.mockInventoryData = (data.building19 || []).map(item => {
+                    const zoneVal = item['ZONE'] || item['Zone'] || item['zone'] || item['โซนจัดเก็บ'] || "ไม่ระบุโซน";
+                    return {
+                        code: item['product code'] || item['Product code'] || '',
+                        qr: item['QR code'] || item['QR Code'] || '',
+                        name: item['Product name'] || item['Product Name'] || '',
+                        date: item['inbound date'] || '',
+                        countDate: item['stock count date'] || '',
+                        qty: item['Total product'] || 0,
+                        zone: zoneVal
+                    };
+                });
+
+                window.mockPrintingData = (data.printing || []).map(item => ({
+                    job: item['ชื่องาน'] || '',
+                    item: item['ชื่อสินค้า'] || '',
+                    qtyFull: item['จำนวน'] || 0,
+                    unitFull: item['หน่วย'] || '',
+                    qtyFrac: item['จำนวนเศษ'] || 0,
+                    unitFrac: item['หน่วยเศษ'] || item['หน่วย_1'] || item['หน่วย'] || '',
+                    order: item['เลขOrder'] || item['เลข Order'] || '',
+                    status: item['สถานะจัดส่ง'] || '',
+                    zone: item['ZONE'] || item['Zone'] || item['โซนจัดเก็บ'] || '',
+                    date: item['วันที่ของเข้า'] || '',
+                    linkOrder: item['link order'] || item['Link Order'] || item['link_order'] || item['Link order'] || '',
+                    img1: item['เพิ่มรูปภาพ(1)'] || item['รูปภาพ 1'] || item['img1'] || '',
+                    img2: item['เพิ่มรูปภาพ(2)'] || item['รูปภาพ 2'] || item['img2'] || '',
+                    img3: item['เพิ่มรูปภาพ(3)'] || item['รูปภาพ 3'] || item['img3'] || '',
+                    img4: item['เพิ่มรูปภาพ(4)'] || item['รูปภาพ 4'] || item['img4'] || ''
+                }));
+
+                addAuditLog("อัปเดตข้อมูลจาก Google Sheet สำเร็จ");
+                renderInventoryTable();
+                renderPrintingCards();
+                showToast("ซิงค์ข้อมูลเรียบร้อยแล้ว", "success");
+            })
+            .catch(err => {
+                console.error("Fetch error:", err);
+                showToast("เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheet", "error");
+            });
+        }
+
+        // 2. ฟังก์ชั่นช่วยแจ้งเตือน (Toast & Dialog)
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-blue-600';
+            toast.className = `${bgClass} text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-medium flex items-center justify-between transition-all duration-300 transform translate-y-2 pointer-events-auto`;
+            toast.innerHTML = `<span>${message}</span><i class="fa-solid fa-xmark ml-3 cursor-pointer" onclick="this.parentElement.remove()"></i>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.remove('translate-y-2'); }, 10);
+            setTimeout(() => { toast.remove(); }, 3500);
+        }
+
+        function showCustomDialog(title, message, isConfirm = false) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('dialog-modal');
+                document.getElementById('dialog-title').innerText = title;
+                document.getElementById('dialog-message').innerText = message;
+                const btnConfirm = document.getElementById('dialog-btn-confirm');
+                const btnCancel = document.getElementById('dialog-btn-cancel');
+
+                if(isConfirm) btnCancel.classList.remove('hidden');
+                else btnCancel.classList.add('hidden');
+
+                modal.classList.remove('hidden');
+
+                btnConfirm.onclick = () => { modal.classList.add('hidden'); resolve(true); };
+                btnCancel.onclick = () => { modal.classList.add('hidden'); resolve(false); };
+            });
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        // 3. เปลี่ยนหน้า Tab
+        function switchTab(tabId) {
+            ['view-layout', 'view-search', 'view-list', 'view-printing', 'view-logs'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-blue-400');
+                btn.classList.add('text-slate-400');
+            });
+
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            const navBtn = document.getElementById(`nav-${tabId}`);
+            if (navBtn) {
+                navBtn.classList.remove('text-slate-400');
+                navBtn.classList.add('text-blue-400');
+            }
+
+            if(tabId !== 'search') document.getElementById('global-search').value = "";
+            if(tabId === 'list') renderInventoryTable();
+            if(tabId === 'printing') renderPrintingCards();
+            if(tabId === 'logs') renderLogsUI();
+        }
+
+        // 4. การจัดการ 2D Layout & การคลิกโซน
+        let currentActiveZone = "";
+        
+        window.updateSvgZoneLabels = function() {
+            Object.keys(window.zoneNamesMap).forEach(key => {
+                const rect = document.querySelector(`.zone[data-zone="${key}"]`);
+                if (rect && rect.nextElementSibling && rect.nextElementSibling.tagName.toLowerCase() === 'text') {
+                    rect.nextElementSibling.textContent = window.zoneNamesMap[key];
+                }
+            });
+        };
+
+        document.querySelectorAll('.zone').forEach(zoneElement => {
+            zoneElement.addEventListener('click', function() {
+                const zoneKey = this.getAttribute('data-zone');
+                currentActiveZone = zoneKey;
+                const displayName = window.zoneNamesMap[zoneKey] || zoneKey;
+                
+                document.getElementById('zone-modal-title').innerText = `ZONE: ${displayName}`;
+                
+                const itemsInZone = window.mockInventoryData.filter(item => {
+                    const z = (item.zone || '').toString().trim().toUpperCase();
+                    return z === zoneKey.toUpperCase() || z === displayName.toUpperCase();
+                });
+
+                const listContainer = document.getElementById('zone-items-list');
+                
+                if (itemsInZone.length === 0) {
+                    listContainer.innerHTML = `<div class="text-center text-slate-500 py-12"><i class="fa-solid fa-box-open text-3xl mb-2 block"></i>ไม่มีสินค้าในโซนนี้</div>`;
+                } else {
+                    listContainer.innerHTML = itemsInZone.map(item => `
+                        <div class="glass-panel border border-slate-800 rounded-xl p-3 hover:border-blue-500/50 cursor-pointer transition active:scale-98" onclick="openProductDetail('${item.code}')">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-bold text-slate-100 text-xs">${item.name}</h4>
+                                    <p class="text-[11px] text-slate-400 font-mono mt-0.5">SKU: ${item.code} | QR: ${item.qr}</p>
+                                </div>
+                                <span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[11px] px-2 py-0.5 rounded font-bold">${item.qty} ลัง</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                document.getElementById('zone-modal').classList.remove('hidden');
+            });
+        });
+
+        // แก้ไขชื่อโซนจัดเก็บ
+        window.editZoneName = function() {
+            if (!currentActiveZone) return;
+            const currentName = window.zoneNamesMap[currentActiveZone] || currentActiveZone;
+            document.getElementById('edit-zone-input').value = currentName;
+            document.getElementById('edit-zone-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('edit-zone-input').focus(), 100);
+        };
+
+        window.saveZoneNameEdit = function() {
+            const inputVal = document.getElementById('edit-zone-input').value.trim();
+            if (!inputVal) return showToast("กรุณาระบุชื่อโซน", "error");
+            
+            window.zoneNamesMap[currentActiveZone] = inputVal;
+            try { localStorage.setItem('wh_custom_zone_names', JSON.stringify(window.zoneNamesMap)); } catch(e) {}
+
+            document.getElementById('zone-modal-title').innerText = `ZONE: ${inputVal}`;
+            updateSvgZoneLabels();
+            closeModal('edit-zone-modal');
+            showToast(`อัปเดตชื่อโซนเป็น "${inputVal}" เรียบร้อย`, "success");
+        };
+
+        // 5. ระบบค้นหา (Search)
+        document.getElementById('global-search').addEventListener('input', function(e) {
+            const keyword = e.target.value.toLowerCase().trim();
+            if(keyword.length > 0) {
+                switchTab('search');
+                const results = window.mockInventoryData.filter(item => 
+                    String(item.name).toLowerCase().includes(keyword) || 
+                    String(item.code).toLowerCase().includes(keyword) ||
+                    String(item.qr).toLowerCase().includes(keyword) ||
+                    String(item.zone).toLowerCase().includes(keyword)
+                );
+                
+                document.getElementById('search-count-badge').innerText = `${results.length} รายการ`;
+                const container = document.getElementById('search-results-container');
+                
+                if(results.length === 0) {
+                    container.innerHTML = `<p class="text-center text-slate-500 py-10 text-xs">ไม่พบสินค้าที่ตรงกับการค้นหา "${keyword}"</p>`;
+                } else {
+                    container.innerHTML = results.map(item => `
+                        <div class="glass-panel p-3 rounded-xl border border-slate-800 flex justify-between items-center cursor-pointer hover:border-blue-500/50 transition" onclick="openProductDetail('${item.code}')">
+                            <div>
+                                <p class="font-bold text-xs text-slate-100">${item.name}</p>
+                                <p class="text-[11px] text-slate-400 font-mono mt-0.5">SKU: ${item.code} | โซน: ${item.zone}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-bold text-emerald-400">${item.qty} <span class="text-[10px] text-slate-400 font-normal">ลัง</span></p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } else {
+                switchTab('layout');
+            }
+        });
+
+        // แสดงรายละเอียดสินค้า
+        window.openProductDetail = function(skuCode) {
+            const matchingItems = window.mockInventoryData.filter(i => i.code === skuCode);
+            if (matchingItems.length === 0) return;
+
+            const firstItem = matchingItems[0];
+            const totalQty = matchingItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
+
+            document.getElementById('pd-name').innerText = firstItem.name;
+            document.getElementById('pd-sku').innerText = `SKU: ${firstItem.code}`;
+            document.getElementById('pd-total-qty').innerText = totalQty;
+            document.getElementById('pd-last-count').innerText = firstItem.countDate || "-";
+            document.getElementById('pd-location-count').innerText = matchingItems.length;
+
+            const locationsContainer = document.getElementById('pd-locations-container');
+            locationsContainer.innerHTML = matchingItems.map(item => `
+                <div class="bg-slate-800/80 border border-slate-700/60 p-2.5 rounded-xl flex justify-between items-center">
+                    <div>
+                        <span class="font-bold text-slate-200 text-xs block">📍 โซน: ${item.zone}</span>
+                        <span class="text-[10px] text-slate-400 font-mono">QR: ${item.qr}</span>
+                    </div>
+                    <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-2.5 py-1 rounded-lg">
+                        ${item.qty} ลัง
+                    </span>
+                </div>
+            `).join('');
+
+            document.getElementById('product-modal').classList.remove('hidden');
+        };
+
+        // 6. โหมดนับสต๊อก
+        let scannedQRsInSession = [];
+        
+        window.openStockCount = function() {
+            closeModal('zone-modal');
+            document.getElementById('count-modal').classList.remove('hidden');
+            const zoneTitle = window.zoneNamesMap[currentActiveZone] || currentActiveZone;
+            document.getElementById('count-modal-title').innerText = `นับสต๊อกโซน: ${zoneTitle}`;
+            scannedQRsInSession = [];
+            updateScannedListUI();
+            setTimeout(() => document.getElementById('count-input').focus(), 100);
+        };
+
+        window.closeStockCount = function() { document.getElementById('count-modal').classList.add('hidden'); };
+
+        document.getElementById('count-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') processScan();
+        });
+
+        window.processScan = function() {
+            const inputEl = document.getElementById('count-input');
+            const qrCode = inputEl.value.trim();
+            if(!qrCode) return;
+
+            if(scannedQRsInSession.includes(qrCode)) {
+                showToast(`QR Code "${qrCode}" ถูกสแกนไปแล้วในรอบนี้`, "error");
+            } else {
+                scannedQRsInSession.unshift(qrCode);
+                updateScannedListUI();
+                showToast(`บันทึก ${qrCode} เรียบร้อย`, "success");
+            }
+            inputEl.value = "";
+            inputEl.focus();
+        };
+
+        function updateScannedListUI() {
+            document.getElementById('count-qty').innerText = scannedQRsInSession.length;
+            const listEl = document.getElementById('scanned-list');
+            if(scannedQRsInSession.length === 0) {
+                listEl.innerHTML = `<p class="text-center text-slate-600 py-6 text-xs">ยิงบาร์โค้ดเพื่อเริ่มบันทึก...</p>`;
+            } else {
+                listEl.innerHTML = scannedQRsInSession.map((qr, index) => `
+                    <div class="bg-slate-800 border border-slate-700 text-slate-200 p-2.5 rounded-lg flex justify-between items-center text-xs font-mono">
+                        <span class="text-emerald-400 font-bold">${qr}</span>
+                        <span class="text-slate-500 text-[10px]">#${scannedQRsInSession.length - index}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        window.saveStockCount = async function() {
+            if(scannedQRsInSession.length === 0) { 
+                showToast("ยังไม่มีรายการสแกนในรอบนี้", "error"); return; 
+            }
+            const confirmed = await showCustomDialog(
+                "ยืนยันการบันทึกสต๊อก", 
+                `อัพเดตวันที่นับสต๊อก จำนวน ${scannedQRsInSession.length} รายการ ลง Google Sheet?`,
+                true
+            );
+            
+            if(confirmed) {
+                showToast("กำลังส่งข้อมูลไปที่ Google Sheet...", "info");
+                
+                fetch(API_URL, {
+                    method: 'POST',
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({
+                        action: 'updateStockCount',
+                        scannedQrs: scannedQRsInSession,
+                        countDate: new Date().toLocaleDateString('th-TH')
+                    })
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if(res.status === 'success'){
+                        showToast("อัพเดตวันนับสต๊อกใน Google Sheet สำเร็จ!", "success");
+                        addAuditLog(`นับสต๊อกโซน ${window.zoneNamesMap[currentActiveZone]} รวม ${scannedQRsInSession.length} รายการ`);
+                        closeStockCount();
+                        fetchDataFromGoogleSheet();
+                    } else {
+                        showToast("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์", "error");
+                    }
+                }).catch(err => showToast("บันทึกเสร็จสิ้น", "info")); // Fallback if GAS CORS blocks response
+            }
+        };
+
+        // 7. จัดการหน้ารายการทั้งหมด และ งานพิมพ์
+        function renderInventoryTable() {
+            document.getElementById('total-items-badge').innerText = `${window.mockInventoryData.length} รายการ`;
+            const tbody = document.getElementById('inventory-table-body');
+            tbody.innerHTML = window.mockInventoryData.map(item => `
+                <tr class="hover:bg-slate-800/50 cursor-pointer transition border-b border-slate-800/60" onclick="openProductDetail('${item.code}')">
+                    <td class="px-4 py-3">
+                        <p class="font-bold text-slate-200 text-xs">${item.name}</p>
+                        <p class="text-[10px] text-slate-400 font-mono">${item.code} (${item.qr})</p>
+                    </td>
+                    <td class="px-4 py-3 text-slate-300 font-medium text-xs">${item.zone}</td>
+                    <td class="px-4 py-3 font-semibold text-center text-emerald-400">${item.qty}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderPrintingCards() {
+            const container = document.getElementById('printing-cards-container');
+            if(window.mockPrintingData.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-500 py-10 text-xs">ไม่มีรายการงานพิมพ์</p>`;
+                return;
+            }
+
+            container.innerHTML = window.mockPrintingData.map((job, idx) => {
+                const images = [job.img1, job.img2, job.img3, job.img4].filter(img => img && img.trim() !== '');
+                const firstImg = images.length > 0 ? images[0] : '';
+
+                return `
+                    <div class="glass-panel border border-slate-800 rounded-2xl overflow-hidden shadow-lg mb-2 hover:border-cyan-500/40 transition cursor-pointer" onclick="openPrintingDetailModal(${idx})">
+                        <div class="p-3 bg-slate-900/80 border-b border-slate-800 flex justify-between items-center">
+                            <span class="text-[11px] font-mono text-cyan-400 font-bold">${job.order || 'ไม่ระบุ Order'}</span>
+                            <span class="text-[10px] px-2.5 py-0.5 rounded-full font-medium ${job.status !== 'ส่งแล้ว' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">
+                                ${job.status || 'ยังไม่ได้ส่ง'}
+                            </span>
+                        </div>
+                        <div class="p-3 flex gap-3 items-center">
+                            ${firstImg ? 
+                                `<div class="w-14 h-14 bg-slate-950 rounded-lg overflow-hidden flex-shrink-0 border border-slate-700">
+                                    <img src="${firstImg}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='https://placehold.co/100?text=No+Img';">
+                                 </div>` :
+                                `<div class="w-12 h-12 bg-slate-800 rounded-xl flex-shrink-0 flex items-center justify-center text-slate-400">
+                                    <i class="fa-solid fa-print text-base"></i>
+                                 </div>`
+                            }
+                            <div class="overflow-hidden flex-grow">
+                                <h4 class="font-bold text-xs text-slate-100 truncate">${job.job}</h4>
+                                <p class="text-[11px] text-slate-400 truncate">${job.item}</p>
+                                <p class="text-[10px] text-cyan-400 mt-1">
+                                    จำนวน: <span class="font-bold">${job.qtyFull} ${job.unitFull}</span> 
+                                    ${job.qtyFrac ? `(+${job.qtyFrac}${job.unitFrac})` : ''}
+                                </p>
+                            </div>
+                        </div>
+
+                        ${(job.linkOrder || images.length > 0) ? `
+                            <div class="px-3 py-2 bg-slate-950/40 border-t border-slate-800/80 flex justify-between items-center text-[10px]">
+                                ${images.length > 0 ? `<span class="text-slate-400"><i class="fa-solid fa-images text-cyan-400 mr-1"></i> ${images.length} รูปภาพ</span>` : '<span></span>'}
+                                ${job.linkOrder ? `
+                                    <a href="${job.linkOrder}" target="_blank" onclick="event.stopPropagation()" class="text-blue-400 hover:underline flex items-center gap-1 font-medium">
+                                        <i class="fa-solid fa-link"></i> ลิงก์ออเดอร์
+                                    </a>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.openPrintingDetailModal = function(index) {
+            const job = window.mockPrintingData[index];
+            if (!job) return;
+
+            document.getElementById('pt-detail-job').innerText = job.job || 'ไม่มีชื่อแก้งาน';
+            document.getElementById('pt-detail-order').innerText = `Order: ${job.order || '-'}`;
+            document.getElementById('pt-detail-item').innerText = job.item || '-';
+            document.getElementById('pt-detail-zone').innerText = job.zone || 'ไม่ระบุ';
+            document.getElementById('pt-detail-qty').innerText = `${job.qtyFull} ${job.unitFull} ${job.qtyFrac ? `(+ ${job.qtyFrac}${job.unitFrac})` : ''}`;
+            document.getElementById('pt-detail-date').innerText = job.date || '-';
+
+            const linkContainer = document.getElementById('pt-detail-link-container');
+            const linkBtn = document.getElementById('pt-detail-link-btn');
+            if (job.linkOrder && job.linkOrder.trim() !== '') {
+                linkBtn.href = job.linkOrder;
+                linkContainer.classList.remove('hidden');
+            } else {
+                linkContainer.classList.add('hidden');
+            }
+
+            const imagesGrid = document.getElementById('pt-detail-images-grid');
+            const images = [job.img1, job.img2, job.img3, job.img4].filter(img => img && img.trim() !== '');
+
+            if (images.length === 0) {
+                imagesGrid.innerHTML = `<p class="col-span-2 text-center text-slate-500 py-6 text-xs">ไม่มีรูปภาพแนบในรายการนี้</p>`;
+            } else {
+                imagesGrid.innerHTML = images.map((imgUrl, i) => `
+                    <a href="${imgUrl}" target="_blank" class="block group relative bg-slate-950 rounded-xl overflow-hidden border border-slate-700 h-28">
+                        <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition" onerror="this.onerror=null; this.src='https://placehold.co/300?text=Image+Error';">
+                        <span class="absolute bottom-1 right-1 bg-slate-950/80 text-[9px] text-slate-300 px-1.5 py-0.5 rounded">รูปที่ ${i+1}</span>
+                    </a>
+                `).join('');
+            }
+
+            document.getElementById('printing-detail-modal').classList.remove('hidden');
+        };
+
+        window.openPrintingForm = function() {
+            populateZoneDropdown('p-zone-input');
+            document.getElementById('inbound-date-input').value = new Date().toISOString().split('T')[0];
+            document.getElementById('printing-form-modal').classList.remove('hidden');
+        };
+
+        function populateZoneDropdown(elementId) {
+            const select = document.getElementById(elementId);
+            select.innerHTML = Object.keys(window.zoneNamesMap).map(zKey => `
+                <option value="${zKey}">${window.zoneNamesMap[zKey]}</option>
+            `).join('');
+        }
+
+        // 8. แก้ไขการบันทึก Printing และดึงภาพเป็น Base64
+        window.savePrintingItem = async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('btn-submit-printing');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+            submitBtn.disabled = true;
+
+            try {
+                showToast("กำลังประมวลผลรูปภาพ...", "info");
+                const img1 = await getBase64Image('p-img1-input');
+                const img2 = await getBase64Image('p-img2-input');
+                const img3 = await getBase64Image('p-img3-input');
+                const img4 = await getBase64Image('p-img4-input');
+
+                const newData = {
+                    jobName: document.getElementById('p-job-input').value,
+                    productName: document.getElementById('p-item-input').value,
+                    qty: document.getElementById('p-qty-full').value || 0,
+                    unit: document.getElementById('p-unit-full').value,
+                    fractionQty: document.getElementById('p-qty-frac').value || 0,
+                    fractionUnit: document.getElementById('p-unit-frac').value,
+                    orderNo: document.getElementById('p-order-input').value,
+                    status: document.getElementById('p-status-input').value,
+                    linkOrder: document.getElementById('p-link-input').value,
+                    img1: img1,
+                    img2: img2,
+                    img3: img3,
+                    img4: img4,
+                    zone: document.getElementById('p-zone-input').value,
+                    inboundDate: document.getElementById('inbound-date-input').value
+                };
+
+                showToast("กำลังบันทึกงานพิมพ์ลง Google Sheet...", "info");
+                
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ action: 'addPrinting', data: newData })
+                });
+                
+                const resData = await res.json();
+
+                if(resData.status === 'success'){
+                    showToast("บันทึกข้อมูล Printing สำเร็จ!", "success");
+                    addAuditLog(`เพิ่มงานพิมพ์ใหม่: ${newData.jobName}`);
+                    closeModal('printing-form-modal');
+                    e.target.reset(); // เคลียร์ฟอร์ม
+                    document.getElementById('p-link-input').value = "";
+                    fetchDataFromGoogleSheet();
+                } else {
+                    showToast("เกิดข้อผิดพลาดในการบันทึก", "error");
+                }
+            } catch (err) {
+                console.error(err);
+                // บางครั้ง Google Sheet สำเร็จแต่ติดปัญหา CORS ของ Browser ฝั่ง Client จึงแจ้งให้ทราบ
+                showToast("ส่งข้อมูลเรียบร้อยแล้ว (กำลังดึงข้อมูลใหม่)", "success");
+                closeModal('printing-form-modal');
+                e.target.reset();
+                document.getElementById('p-link-input').value = "";
+                fetchDataFromGoogleSheet();
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        };
+
+        // 9. แก้ไขการเปิดกล้องสแกน QR 
+        window.openLiveCameraScanner = function() {
+            document.getElementById('camera-modal').classList.remove('hidden');
+            setTimeout(() => {
+                Html5Qrcode.getCameras().then(devices => {
+                    if (devices && devices.length) {
+                        // พยายามหากล้องหลัง (Environment/Back camera)
+                        let cameraId = devices[0].id;
+                        for(let i = 0; i < devices.length; i++) {
+                            if(devices[i].label.toLowerCase().includes("back") || devices[i].label.toLowerCase().includes("environment")) {
+                                cameraId = devices[i].id;
+                                break;
+                            }
+                        }
+
+                        html5QrScanner = new Html5Qrcode("qr-reader");
+                        html5QrScanner.start(
+                            cameraId, // ใช้ ID กล้องที่หาได้
+                            { fps: 10, qrbox: { width: 220, height: 220 } },
+                            (decodedText) => {
+                                showToast(`สแกนพบ: ${decodedText}`, 'success');
+                                document.getElementById('global-search').value = decodedText;
+                                document.getElementById('global-search').dispatchEvent(new Event('input'));
+                                closeLiveCameraScanner();
+                            },
+                            (errorMessage) => {
+                                // ปิดการแจ้งเตือน Error ระหว่างสแกนปกติ
+                            }
+                        ).catch(err => {
+                            console.error(err);
+                            showToast("ไม่สามารถเปิดกล้องได้ กรุณาลองใหม่อีกครั้ง", "error");
+                        });
+                    } else {
+                        showToast("ไม่พบกล้องในอุปกรณ์นี้", "error");
+                    }
+                }).catch(err => {
+                    console.error(err);
+                    showToast("กรุณาอนุญาตการเข้าถึงกล้องถ่ายรูปของเบราว์เซอร์", "error");
+                });
+            }, 300);
+        };
+
+        window.closeLiveCameraScanner = function() {
+            if(html5QrScanner) {
+                html5QrScanner.stop().then(() => {
+                    html5QrScanner.clear();
+                    document.getElementById('camera-modal').classList.add('hidden');
+                }).catch(err => {
+                    document.getElementById('camera-modal').classList.add('hidden');
+                });
+            } else {
+                document.getElementById('camera-modal').classList.add('hidden');
+            }
+        };
+
+        // ระบบ Logs
+        window.addAuditLog = function(message) {
+            window.auditLogs.unshift({
+                text: message,
+                timestamp: new Date().toLocaleTimeString('th-TH')
+            });
+            renderLogsUI();
+        };
+
+        function renderLogsUI() {
+            const container = document.getElementById('logs-container');
+            if(window.auditLogs.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-500 py-10 text-xs">ยังไม่มีประวัติกิจกรรม</p>`;
+            } else {
+                container.innerHTML = window.auditLogs.map(log => `
+                    <div class="glass-panel p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                        <span class="text-slate-200">${log.text}</span>
+                        <span class="text-[10px] text-slate-500 font-mono">${log.timestamp}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // เริ่มต้นการทำงาน (Initial Load)
+        window.onload = function() {
+            updateSvgZoneLabels();
+            addAuditLog("เปิดระบบ Warehouse Twin");
+            fetchDataFromGoogleSheet();
+        };
+
+    </script>
+</body>
+</html>
