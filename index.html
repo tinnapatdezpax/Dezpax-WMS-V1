@@ -980,35 +980,33 @@
                 if (itemsInZone.length === 0) {
                     listContainer.innerHTML = `<div class="text-center text-slate-500 py-12"><i class="fa-solid fa-box-open text-3xl mb-2 block"></i>ไม่มีสินค้าในโซนนี้</div>`;
                 } else {
-                    // จัดกลุ่มตามชื่อสินค้า (Product Name)
+                    // จัดกลุ่มตาม Product Code (ตามข้อ 1.1)
                     const groupedMap = {};
                     itemsInZone.forEach(item => {
-                        const nameKey = (item.name || 'ไม่ระบุชื่อสินค้า').trim();
-                        if (!groupedMap[nameKey]) {
-                            groupedMap[nameKey] = {
-                                name: nameKey,
-                                code: item.code,
-                                codes: new Set(),
+                        const codeKey = (item.code || 'ไม่มี SKU').trim();
+                        if (!groupedMap[codeKey]) {
+                            groupedMap[codeKey] = {
+                                name: item.name || 'ไม่ระบุชื่อสินค้า',
+                                code: codeKey,
                                 totalQty: 0,
                                 items: []
                             };
                         }
-                        groupedMap[nameKey].items.push(item);
-                        if (item.code) groupedMap[nameKey].codes.add(item.code);
-                        groupedMap[nameKey].totalQty += Number(item.qty || 0);
+                        groupedMap[codeKey].items.push(item);
+                        // 1.1 บวกจำนวนลังจากการนับ product code ที่ซ้ำกัน (1 รายการ = 1 ลัง)
+                        groupedMap[codeKey].totalQty = groupedMap[codeKey].items.length; 
                     });
 
                     const groupedList = Object.values(groupedMap);
 
                     listContainer.innerHTML = groupedList.map(group => {
-                        const skuText = Array.from(group.codes).join(', ');
                         const isMulti = group.items.length > 1;
                         return `
                             <div class="glass-panel border border-slate-800 rounded-xl p-3.5 hover:border-blue-500/50 cursor-pointer transition active:scale-98 space-y-2" onclick="openProductDetail('${group.code}')">
                                 <div class="flex justify-between items-start">
                                     <div>
                                         <h4 class="font-bold text-slate-100 text-xs">${group.name}</h4>
-                                        <p class="text-[11px] text-slate-400 font-mono mt-0.5">SKU: ${skuText || '-'}</p>
+                                        <p class="text-[11px] text-slate-400 font-mono mt-0.5">SKU: ${group.code}</p>
                                     </div>
                                     <div class="text-right">
                                         <span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs px-2.5 py-1 rounded-lg font-bold">${group.totalQty} ลัง</span>
@@ -1018,9 +1016,8 @@
                                 ${isMulti ? `
                                     <div class="pt-2 border-t border-slate-800/80 space-y-1 text-[11px]">
                                         ${group.items.map(sub => `
-                                            <div class="flex justify-between text-slate-400 font-mono">
+                                            <div class="text-slate-400 font-mono">
                                                 <span>QR: ${sub.qr || '-'}</span>
-                                                <span class="text-slate-300 font-medium">${sub.qty} ลัง</span>
                                             </div>
                                         `).join('')}
                                     </div>
@@ -1098,26 +1095,45 @@
             if (matchingItems.length === 0) return;
 
             const firstItem = matchingItems[0];
-            const totalQty = matchingItems.reduce((sum, i) => sum + Number(i.qty || 0), 0);
+            
+            // 2.1 ให้นับจาก product code ที่ซ้ำกัน ทั้งหมดของ stock (1 รายการ = 1 ลัง)
+            const totalQty = matchingItems.length;
 
             document.getElementById('pd-name').innerText = firstItem.name;
             document.getElementById('pd-sku').innerText = `SKU: ${firstItem.code}`;
             document.getElementById('pd-total-qty').innerText = totalQty;
             document.getElementById('pd-last-count').innerText = firstItem.countDate || "-";
-            document.getElementById('pd-location-count').innerText = matchingItems.length;
+
+            // 2.2 จัดกลุ่มสถานที่เก็บตาม Zone
+            const zoneGroups = {};
+            matchingItems.forEach(item => {
+                const z = item.zone || 'ไม่ระบุ';
+                if (!zoneGroups[z]) zoneGroups[z] = [];
+                zoneGroups[z].push(item);
+            });
+
+            document.getElementById('pd-location-count').innerText = Object.keys(zoneGroups).length;
 
             const locationsContainer = document.getElementById('pd-locations-container');
-            locationsContainer.innerHTML = matchingItems.map(item => `
-                <div class="bg-slate-800/80 border border-slate-700/60 p-2.5 rounded-xl flex justify-between items-center">
-                    <div>
-                        <span class="font-bold text-slate-200 text-xs block">📍 โซน: ${item.zone}</span>
-                        <span class="text-[10px] text-slate-400 font-mono">QR: ${item.qr}</span>
+            locationsContainer.innerHTML = Object.keys(zoneGroups).map(zone => {
+                const itemsInZone = zoneGroups[zone];
+                const zoneQty = itemsInZone.length;
+                return `
+                <div class="bg-slate-800/80 border border-slate-700/60 p-2.5 rounded-xl flex justify-between items-start">
+                    <div class="flex-grow pr-2">
+                        <span class="font-bold text-slate-200 text-xs block mb-1.5">📍 โซน: ${zone}</span>
+                        <div class="space-y-1">
+                            ${itemsInZone.map(item => `
+                                <div class="text-[10px] text-slate-400 font-mono">QR: ${item.qr}</div>
+                            `).join('')}
+                        </div>
                     </div>
-                    <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-2.5 py-1 rounded-lg">
-                        ${item.qty} ลัง
+                    <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0">
+                        ${zoneQty} ลัง
                     </span>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             document.getElementById('product-modal').classList.remove('hidden');
         };
@@ -1409,150 +1425,100 @@
                     fractionUnit: document.getElementById('p-unit-frac').value,
                     orderNo: document.getElementById('p-order-input').value,
                     status: document.getElementById('p-status-input').value,
-                    linkOrder: document.getElementById('p-link-input').value,
-                    img1: img1,
-                    img2: img2,
-                    img3: img3,
-                    img4: img4,
                     zone: document.getElementById('p-zone-input').value,
-                    inboundDate: document.getElementById('inbound-date-input').value
+                    inboundDate: document.getElementById('inbound-date-input').value,
+                    linkOrder: document.getElementById('p-link-input').value,
+                    img1: img1, img2: img2, img3: img3, img4: img4
                 };
 
-                const isEdit = window.editingPrintingIndex >= 0;
-                const actionType = isEdit ? 'editPrinting' : 'addPrinting';
-
-                showToast(isEdit ? "กำลังอัปเดตงานพิมพ์ลง Google Sheet..." : "กำลังบันทึกงานพิมพ์ลง Google Sheet...", "info");
+                const payload = {
+                    action: window.editingPrintingIndex >= 0 ? 'updatePrinting' : 'addPrinting',
+                    data: newData
+                };
                 
+                if (window.editingPrintingIndex >= 0) {
+                    payload.rowIndex = window.editingPrintingIndex + 2; 
+                }
+
                 await fetch(API_URL, {
                     method: 'POST',
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: actionType, data: newData, index: window.editingPrintingIndex })
+                    body: JSON.stringify(payload)
                 });
 
-                const updatedLocalObject = {
-                    job: newData.jobName,
-                    item: newData.productName,
-                    qtyFull: newData.qty,
-                    unitFull: newData.unit,
-                    qtyFrac: newData.fractionQty,
-                    unitFrac: newData.fractionUnit,
-                    order: newData.orderNo,
-                    status: newData.status,
-                    zone: newData.zone,
-                    date: newData.inboundDate,
-                    linkOrder: newData.linkOrder,
-                    img1: img1,
-                    img2: img2,
-                    img3: img3,
-                    img4: img4
-                };
-
-                if (isEdit) {
-                    window.mockPrintingData[window.editingPrintingIndex] = updatedLocalObject;
-                    showToast("แก้ไขข้อมูล Printing สำเร็จ!", "success");
-                    addAuditLog(`แก้ไขงานพิมพ์: ${newData.jobName}`);
-                } else {
-                    showToast("บันทึกข้อมูล Printing สำเร็จ!", "success");
-                    addAuditLog(`เพิ่มงานพิมพ์ใหม่: ${newData.jobName}`);
-                }
-
                 closeModal('printing-form-modal');
-                renderPrintingCards();
-                fetchDataFromGoogleSheet();
-
-            } catch (err) {
-                console.error(err);
+                const logMsg = window.editingPrintingIndex >= 0 ? `แก้ไขงานพิมพ์ ${newData.jobName}` : `เพิ่มงานพิมพ์ใหม่ ${newData.jobName}`;
+                addAuditLog(logMsg);
                 showToast("บันทึกข้อมูลเรียบร้อยแล้ว", "success");
-                closeModal('printing-form-modal');
-                renderPrintingCards();
-                fetchDataFromGoogleSheet();
+                
+                setTimeout(() => fetchDataFromGoogleSheet(), 1000);
+
+            } catch (error) {
+                console.error("Error saving printing item:", error);
+                showToast("เกิดข้อผิดพลาด กรุณาลองใหม่", "error");
             } finally {
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             }
         };
 
-        // 9. เปิดกล้องสแกน QR
-        window.openLiveCameraScanner = function() {
-            document.getElementById('camera-modal').classList.remove('hidden');
-            setTimeout(() => {
-                Html5Qrcode.getCameras().then(devices => {
-                    if (devices && devices.length) {
-                        let cameraId = devices[0].id;
-                        for(let i = 0; i < devices.length; i++) {
-                            if(devices[i].label.toLowerCase().includes("back") || devices[i].label.toLowerCase().includes("environment")) {
-                                cameraId = devices[i].id;
-                                break;
-                            }
-                        }
-
-                        html5QrScanner = new Html5Qrcode("qr-reader");
-                        html5QrScanner.start(
-                            cameraId,
-                            { fps: 10, qrbox: { width: 220, height: 220 } },
-                            (decodedText) => {
-                                showToast(`สแกนพบ: ${decodedText}`, 'success');
-                                document.getElementById('global-search').value = decodedText;
-                                document.getElementById('global-search').dispatchEvent(new Event('input'));
-                                closeLiveCameraScanner();
-                            },
-                            (errorMessage) => {}
-                        ).catch(err => {
-                            console.error(err);
-                            showToast("ไม่สามารถเปิดกล้องได้ กรุณาลองใหม่อีกครั้ง", "error");
-                        });
-                    } else {
-                        showToast("ไม่พบกล้องในอุปกรณ์นี้", "error");
-                    }
-                }).catch(err => {
-                    console.error(err);
-                    showToast("กรุณาอนุญาตการเข้าถึงกล้องถ่ายรูปของเบราว์เซอร์", "error");
-                });
-            }, 300);
-        };
-
-        window.closeLiveCameraScanner = function() {
-            if(html5QrScanner) {
-                html5QrScanner.stop().then(() => {
-                    html5QrScanner.clear();
-                    document.getElementById('camera-modal').classList.add('hidden');
-                }).catch(err => {
-                    document.getElementById('camera-modal').classList.add('hidden');
-                });
-            } else {
-                document.getElementById('camera-modal').classList.add('hidden');
-            }
-        };
-
-        // ระบบ Logs
-        window.addAuditLog = function(message) {
-            window.auditLogs.unshift({
-                text: message,
-                timestamp: new Date().toLocaleTimeString('th-TH')
-            });
-            renderLogsUI();
-        };
+        // 9. Audit Logs
+        function addAuditLog(action) {
+            const time = new Date().toLocaleTimeString('th-TH');
+            window.auditLogs.unshift({ time, action });
+            if(window.auditLogs.length > 20) window.auditLogs.pop();
+            if(!document.getElementById('view-logs').classList.contains('hidden')) renderLogsUI();
+        }
 
         function renderLogsUI() {
             const container = document.getElementById('logs-container');
             if(window.auditLogs.length === 0) {
-                container.innerHTML = `<p class="text-center text-slate-500 py-10 text-xs">ยังไม่มีประวัติกิจกรรม</p>`;
-            } else {
-                container.innerHTML = window.auditLogs.map(log => `
-                    <div class="glass-panel p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                        <span class="text-slate-200">${log.text}</span>
-                        <span class="text-[10px] text-slate-500 font-mono">${log.timestamp}</span>
-                    </div>
-                `).join('');
+                container.innerHTML = `<p class="text-center text-slate-500 py-10 text-xs">ยังไม่มีประวัติการทำงาน</p>`;
+                return;
             }
+            container.innerHTML = window.auditLogs.map(log => `
+                <div class="glass-panel p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                    <span class="text-slate-300">${log.action}</span>
+                    <span class="text-slate-500 font-mono">${log.time}</span>
+                </div>
+            `).join('');
         }
 
-        // เริ่มต้นการทำงาน (Initial Load)
-        window.onload = function() {
-            updateSvgZoneLabels();
-            addAuditLog("เปิดระบบ Warehouse Twin");
-            fetchDataFromGoogleSheet();
+        // 10. ระบบ Scanner ด้วยกล้องสำหรับค้นหา
+        window.openLiveCameraScanner = function() {
+            document.getElementById('camera-modal').classList.remove('hidden');
+            if(html5QrScanner) {
+                html5QrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess, onScanFailure)
+                .catch(err => {
+                    console.error("Scanner Error:", err);
+                    showToast("ไม่สามารถเปิดกล้องได้", "error");
+                });
+            }
         };
+
+        window.closeLiveCameraScanner = function() {
+            document.getElementById('camera-modal').classList.add('hidden');
+            if(html5QrScanner) { html5QrScanner.stop().catch(err => console.error("Stop error", err)); }
+        };
+
+        function onScanSuccess(decodedText) {
+            closeLiveCameraScanner();
+            document.getElementById('global-search').value = decodedText;
+            document.getElementById('global-search').dispatchEvent(new Event('input'));
+            showToast(`สแกนสำเร็จ: ${decodedText}`, "success");
+        }
+
+        function onScanFailure(error) { /* Ignore background scanning errors */ }
+
+        // 11. Initial Load
+        document.addEventListener("DOMContentLoaded", () => {
+            html5QrScanner = new Html5Qrcode("qr-reader");
+            updateSvgZoneLabels();
+            setTimeout(() => {
+                showToast("กำลังโหลดข้อมูลเริ่มต้น...", "info");
+                fetchDataFromGoogleSheet();
+            }, 800);
+        });
 
     </script>
 </body>
