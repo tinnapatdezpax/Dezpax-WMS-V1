@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Warehouse Digital Twin - Phase 2 Production Ready</title>
+    <title>DEZPAX interactive layout stock</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome CDN -->
@@ -91,7 +91,7 @@
                     <i class="fa-solid fa-cubes text-lg"></i>
                 </div>
                 <div>
-                    <h1 class="text-base font-bold tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">WAREHOUSE TWIN</h1>
+                    <h1 class="text-base font-bold tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">DEZPAX WMS V1</h1>
                     <p class="text-[10px] text-cyan-400 font-medium tracking-wider">REALTIME INVENTORY SYSTEM</p>
                 </div>
             </div>
@@ -125,7 +125,7 @@
             <div class="glass-panel rounded-2xl p-3 mb-4 shadow-xl border border-slate-800">
                 <div class="flex justify-between items-center mb-3 px-1">
                     <p class="text-xs text-slate-400"><i class="fa-solid fa-hand-pointer text-blue-400 mr-1"></i> แตะที่โซนในผังเพื่อดูและจัดการสต๊อก</p>
-                    <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">Digital Twin Map</span>
+                    <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">LAYOUT MAP</span>
                 </div>
                 
                 <!-- SVG Interactive Warehouse Layout -->
@@ -451,8 +451,12 @@
                 </div>
             </div>
 
-            <div class="p-3 border-t border-slate-800 bg-slate-900/90 text-center">
-                <button onclick="closeModal('printing-detail-modal')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-medium border border-slate-700">ปิด</button>
+            <!-- Footer: เพิ่มปุ่ม แก้ไขข้อมูล สำหรับ Model งานพิมพ์ -->
+            <div class="p-3 border-t border-slate-800 bg-slate-900/90 flex gap-2">
+                <button id="btn-edit-printing" onclick="editCurrentPrintingItem()" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white py-2.5 rounded-xl text-xs font-medium shadow-lg shadow-amber-600/20 flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูล
+                </button>
+                <button onclick="closeModal('printing-detail-modal')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-medium border border-slate-700">ปิด</button>
             </div>
         </div>
     </div>
@@ -491,11 +495,11 @@
         </div>
     </div>
 
-    <!-- MODAL: Printing & Customize Form Modal -->
+    <!-- MODAL: Printing & Customize Form Modal (เพิ่ม/แก้ไข Stock งานพิมพ์) -->
     <div id="printing-form-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-end sm:items-center justify-center">
         <div class="glass-panel bg-slate-900 border border-slate-800 w-full sm:w-[500px] h-[92vh] sm:h-auto sm:max-h-[90vh] rounded-t-3xl sm:rounded-2xl flex flex-col slide-up shadow-2xl">
             <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90 rounded-t-3xl sm:rounded-t-2xl">
-                <h3 class="font-bold text-sm text-cyan-400 flex items-center gap-2"><i class="fa-solid fa-plus-circle"></i> เพิ่ม Stock งานพิมพ์</h3>
+                <h3 class="font-bold text-sm text-cyan-400 flex items-center gap-2" id="printing-form-title"><i class="fa-solid fa-plus-circle"></i> เพิ่ม Stock งานพิมพ์</h3>
                 <button onclick="closeModal('printing-form-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
@@ -551,13 +555,67 @@
                     <input type="url" id="p-link-input" readonly class="w-full bg-slate-800/50 border border-slate-700/50 p-2.5 rounded-lg text-slate-400 font-mono text-[11px]" placeholder="ลิงก์จะแสดงที่นี่อัตโนมัติ...">
                 </div>
 
-                <!-- Input รูปภาพ 1-4 อัพเดตเป็นแบบอัพโหลด/เปิดกล้องถ่าย -->
-                <div class="bg-slate-850 p-3 rounded-xl border border-slate-800 space-y-2">
-                    <label class="block text-cyan-400 font-semibold text-xs mb-1"><i class="fa-solid fa-camera mr-1"></i> ถ่ายรูป/อัพโหลดรูป (สูงสุด 4 รูป)</label>
-                    <input type="file" accept="image/*" id="p-img1-input" class="w-full text-slate-300 text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition cursor-pointer">
-                    <input type="file" accept="image/*" id="p-img2-input" class="w-full text-slate-300 text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition cursor-pointer">
-                    <input type="file" accept="image/*" id="p-img3-input" class="w-full text-slate-300 text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition cursor-pointer">
-                    <input type="file" accept="image/*" id="p-img4-input" class="w-full text-slate-300 text-[11px] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition cursor-pointer">
+                <!-- Input รูปภาพ 1-4 แบบอัพโหลดจาก Gallery / ถ่ายภาพด้วยกล้อง -->
+                <div class="bg-slate-850 p-3 rounded-xl border border-slate-800 space-y-3">
+                    <label class="block text-cyan-400 font-semibold text-xs mb-1">
+                        <i class="fa-solid fa-images mr-1"></i> เพิ่มรูปภาพสินค้า (สูงสุด 4 รูป)
+                    </label>
+                    
+                    <!-- Hidden File Inputs for Gallery -->
+                    <input type="file" accept="image/*" id="p-img1-input" class="hidden">
+                    <input type="file" accept="image/*" id="p-img2-input" class="hidden">
+                    <input type="file" accept="image/*" id="p-img3-input" class="hidden">
+                    <input type="file" accept="image/*" id="p-img4-input" class="hidden">
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <!-- Slot 1 -->
+                        <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 flex items-center gap-2">
+                            <div id="p-img1-preview"></div>
+                            <div class="flex flex-col gap-1 flex-grow">
+                                <span class="text-[10px] text-slate-300 font-medium">รูปที่ 1</span>
+                                <div class="flex gap-1">
+                                    <button type="button" onclick="triggerGallery(1)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-[10px] py-1 px-1 rounded border border-slate-700 flex items-center justify-center gap-1"><i class="fa-solid fa-image"></i> Gallery</button>
+                                    <button type="button" onclick="openPhotoCamera(1)" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] py-1 px-1 rounded flex items-center justify-center gap-1 shadow-sm"><i class="fa-solid fa-camera"></i> ถ่ายรูป</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Slot 2 -->
+                        <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 flex items-center gap-2">
+                            <div id="p-img2-preview"></div>
+                            <div class="flex flex-col gap-1 flex-grow">
+                                <span class="text-[10px] text-slate-300 font-medium">รูปที่ 2</span>
+                                <div class="flex gap-1">
+                                    <button type="button" onclick="triggerGallery(2)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-[10px] py-1 px-1 rounded border border-slate-700 flex items-center justify-center gap-1"><i class="fa-solid fa-image"></i> Gallery</button>
+                                    <button type="button" onclick="openPhotoCamera(2)" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] py-1 px-1 rounded flex items-center justify-center gap-1 shadow-sm"><i class="fa-solid fa-camera"></i> ถ่ายรูป</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Slot 3 -->
+                        <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 flex items-center gap-2">
+                            <div id="p-img3-preview"></div>
+                            <div class="flex flex-col gap-1 flex-grow">
+                                <span class="text-[10px] text-slate-300 font-medium">รูปที่ 3</span>
+                                <div class="flex gap-1">
+                                    <button type="button" onclick="triggerGallery(3)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-[10px] py-1 px-1 rounded border border-slate-700 flex items-center justify-center gap-1"><i class="fa-solid fa-image"></i> Gallery</button>
+                                    <button type="button" onclick="openPhotoCamera(3)" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] py-1 px-1 rounded flex items-center justify-center gap-1 shadow-sm"><i class="fa-solid fa-camera"></i> ถ่ายรูป</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Slot 4 -->
+                        <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 flex items-center gap-2">
+                            <div id="p-img4-preview"></div>
+                            <div class="flex flex-col gap-1 flex-grow">
+                                <span class="text-[10px] text-slate-300 font-medium">รูปที่ 4</span>
+                                <div class="flex gap-1">
+                                    <button type="button" onclick="triggerGallery(4)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-[10px] py-1 px-1 rounded border border-slate-700 flex items-center justify-center gap-1"><i class="fa-solid fa-image"></i> Gallery</button>
+                                    <button type="button" onclick="openPhotoCamera(4)" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] py-1 px-1 rounded flex items-center justify-center gap-1 shadow-sm"><i class="fa-solid fa-camera"></i> ถ่ายรูป</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
@@ -578,6 +636,26 @@
         </div>
     </div>
 
+    <!-- MODAL: Photo Camera Capture Modal (กล้องถ่ายรูปสินค้างานพิมพ์) -->
+    <div id="photo-camera-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md hidden z-50 flex flex-col justify-between p-4">
+        <div class="flex justify-between items-center text-slate-200">
+            <h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-camera text-cyan-400"></i> ถ่ายรูปสินค้า (ช่องที่ <span id="camera-slot-num">1</span>)</h3>
+            <button type="button" onclick="closePhotoCamera()" class="p-2 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        
+        <div class="flex-grow flex flex-col justify-center items-center my-4 overflow-hidden relative">
+            <video id="photo-camera-stream" class="w-full max-w-sm rounded-2xl border border-slate-800 shadow-2xl object-cover h-[350px] bg-slate-900" autoplay playsinline></video>
+            <canvas id="photo-camera-canvas" class="hidden"></canvas>
+        </div>
+
+        <div class="flex gap-2">
+            <button type="button" onclick="closePhotoCamera()" class="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl font-medium text-xs border border-slate-700">ยกเลิก</button>
+            <button type="button" onclick="takePhotoSnap()" class="w-2/3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white py-3 rounded-xl font-semibold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-circle-dot text-rose-400 text-base animate-pulse"></i> ถ่ายภาพ
+            </button>
+        </div>
+    </div>
+
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
@@ -589,6 +667,13 @@
         window.mockPrintingData = [];
         window.auditLogs = [];
         let html5QrScanner = null;
+
+        // Printing Edit & Photo Storage Variables
+        window.editingPrintingIndex = -1;
+        window.currentPrintingDetailIndex = -1;
+        window.capturedPhotoBase64 = { 1: "", 2: "", 3: "", 4: "" };
+        let photoStreamTrack = null;
+        let currentPhotoSlot = 1;
 
         // Custom Zone Names
         const defaultZoneNames = {
@@ -634,7 +719,6 @@
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        // บีบอัดภาพความกว้างสูงสุด 600px เพื่อไม่ให้ payload ใหญ่เกินไป
                         const MAX_SIZE = 600; 
                         let width = img.width;
                         let height = img.height;
@@ -649,7 +733,6 @@
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        // แปลงกลับเป็น dataURI ระดับคุณภาพ 70%
                         resolve(canvas.toDataURL('image/jpeg', 0.7)); 
                     };
                     img.src = e.target.result;
@@ -658,6 +741,111 @@
                 reader.readAsDataURL(file);
             });
         }
+
+        // จัดการเรื่อง Gallery & Camera สำหรับเพิ่ม/แก้ไขงานพิมพ์
+        window.triggerGallery = function(slot) {
+            const fileInput = document.getElementById(`p-img${slot}-input`);
+            if (fileInput) fileInput.click();
+        };
+
+        [1, 2, 3, 4].forEach(slot => {
+            const fileInput = document.getElementById(`p-img${slot}-input`);
+            if (fileInput) {
+                fileInput.addEventListener('change', async function() {
+                    if (this.files && this.files[0]) {
+                        const base64 = await getBase64Image(`p-img${slot}-input`);
+                        window.capturedPhotoBase64[slot] = base64;
+                        updatePhotoSlotUI(slot);
+                    }
+                });
+            }
+        });
+
+        function updatePhotoSlotUI(slot) {
+            const previewEl = document.getElementById(`p-img${slot}-preview`);
+            const val = window.capturedPhotoBase64[slot];
+            if (val && val.trim() !== "") {
+                previewEl.innerHTML = `
+                    <div class="relative w-12 h-12 bg-slate-950 rounded-lg overflow-hidden border border-cyan-500/50">
+                        <img src="${val}" class="w-full h-full object-cover">
+                        <button type="button" onclick="removePhotoSlot(${slot})" class="absolute top-0 right-0 bg-rose-600/90 text-white w-4 h-4 rounded-bl flex items-center justify-center text-[9px]">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+            } else {
+                previewEl.innerHTML = `
+                    <div class="w-12 h-12 bg-slate-800/60 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-[10px]">
+                        <i class="fa-solid fa-image"></i>
+                    </div>
+                `;
+            }
+        }
+
+        window.removePhotoSlot = function(slot) {
+            window.capturedPhotoBase64[slot] = "";
+            const fileInput = document.getElementById(`p-img${slot}-input`);
+            if (fileInput) fileInput.value = "";
+            updatePhotoSlotUI(slot);
+        };
+
+        window.openPhotoCamera = function(slot) {
+            currentPhotoSlot = slot;
+            document.getElementById('camera-slot-num').innerText = slot;
+            document.getElementById('photo-camera-modal').classList.remove('hidden');
+
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            }).then(stream => {
+                const video = document.getElementById('photo-camera-stream');
+                video.srcObject = stream;
+                photoStreamTrack = stream;
+            }).catch(err => {
+                console.error("Camera error:", err);
+                showToast("ไม่สามารถเปิดกล้องถ่ายรูปได้", "error");
+                closePhotoCamera();
+            });
+        };
+
+        window.closePhotoCamera = function() {
+            if (photoStreamTrack) {
+                photoStreamTrack.getTracks().forEach(track => track.stop());
+                photoStreamTrack = null;
+            }
+            document.getElementById('photo-camera-modal').classList.add('hidden');
+        };
+
+        window.takePhotoSnap = function() {
+            const video = document.getElementById('photo-camera-stream');
+            const canvas = document.getElementById('photo-camera-canvas');
+            if (!video || !video.videoWidth) {
+                showToast("กล้องยังไม่พร้อมสำหรับการถ่ายภาพ", "error");
+                return;
+            }
+
+            const MAX_SIZE = 600;
+            let width = video.videoWidth;
+            let height = video.videoHeight;
+            if (width > height && width > MAX_SIZE) {
+                height *= MAX_SIZE / width;
+                width = MAX_SIZE;
+            } else if (height > width && height > MAX_SIZE) {
+                width *= MAX_SIZE / height;
+                height = MAX_SIZE;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, width, height);
+
+            const base64Data = canvas.toDataURL('image/jpeg', 0.7);
+            window.capturedPhotoBase64[currentPhotoSlot] = base64Data;
+            updatePhotoSlotUI(currentPhotoSlot);
+            
+            showToast(`ถ่ายภาพช่องที่ ${currentPhotoSlot} เรียบร้อย`, "success");
+            closePhotoCamera();
+        };
 
         // 1. ดึงข้อมูลจาก Google Sheets (GET API)
         function fetchDataFromGoogleSheet() {
@@ -762,7 +950,7 @@
             if(tabId === 'logs') renderLogsUI();
         }
 
-        // 4. การจัดการ 2D Layout & การคลิกโซน
+        // 4. การจัดการ 2D Layout & การคลิกโซน (อัปเดต Group ตามชื่อสินค้า)
         let currentActiveZone = "";
         
         window.updateSvgZoneLabels = function() {
@@ -792,17 +980,56 @@
                 if (itemsInZone.length === 0) {
                     listContainer.innerHTML = `<div class="text-center text-slate-500 py-12"><i class="fa-solid fa-box-open text-3xl mb-2 block"></i>ไม่มีสินค้าในโซนนี้</div>`;
                 } else {
-                    listContainer.innerHTML = itemsInZone.map(item => `
-                        <div class="glass-panel border border-slate-800 rounded-xl p-3 hover:border-blue-500/50 cursor-pointer transition active:scale-98" onclick="openProductDetail('${item.code}')">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <h4 class="font-bold text-slate-100 text-xs">${item.name}</h4>
-                                    <p class="text-[11px] text-slate-400 font-mono mt-0.5">SKU: ${item.code} | QR: ${item.qr}</p>
+                    // จัดกลุ่มตามชื่อสินค้า (Product Name)
+                    const groupedMap = {};
+                    itemsInZone.forEach(item => {
+                        const nameKey = (item.name || 'ไม่ระบุชื่อสินค้า').trim();
+                        if (!groupedMap[nameKey]) {
+                            groupedMap[nameKey] = {
+                                name: nameKey,
+                                code: item.code,
+                                codes: new Set(),
+                                totalQty: 0,
+                                items: []
+                            };
+                        }
+                        groupedMap[nameKey].items.push(item);
+                        if (item.code) groupedMap[nameKey].codes.add(item.code);
+                        groupedMap[nameKey].totalQty += Number(item.qty || 0);
+                    });
+
+                    const groupedList = Object.values(groupedMap);
+
+                    listContainer.innerHTML = groupedList.map(group => {
+                        const skuText = Array.from(group.codes).join(', ');
+                        const isMulti = group.items.length > 1;
+                        return `
+                            <div class="glass-panel border border-slate-800 rounded-xl p-3.5 hover:border-blue-500/50 cursor-pointer transition active:scale-98 space-y-2" onclick="openProductDetail('${group.code}')">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h4 class="font-bold text-slate-100 text-xs">${group.name}</h4>
+                                        <p class="text-[11px] text-slate-400 font-mono mt-0.5">SKU: ${skuText || '-'}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs px-2.5 py-1 rounded-lg font-bold">${group.totalQty} ลัง</span>
+                                        ${isMulti ? `<span class="text-[10px] text-slate-400 block mt-0.5">(${group.items.length} รายการย่อย)</span>` : ''}
+                                    </div>
                                 </div>
-                                <span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[11px] px-2 py-0.5 rounded font-bold">${item.qty} ลัง</span>
+                                ${isMulti ? `
+                                    <div class="pt-2 border-t border-slate-800/80 space-y-1 text-[11px]">
+                                        ${group.items.map(sub => `
+                                            <div class="flex justify-between text-slate-400 font-mono">
+                                                <span>QR: ${sub.qr || '-'}</span>
+                                                <span class="text-slate-300 font-medium">${sub.qty} ลัง</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : `
+                                    <p class="text-[10px] text-slate-400 font-mono">QR: ${group.items[0].qr || '-'}</p>
+                                `}
                             </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
                 document.getElementById('zone-modal').classList.remove('hidden');
             });
@@ -977,7 +1204,7 @@
                     } else {
                         showToast("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์", "error");
                     }
-                }).catch(err => showToast("บันทึกเสร็จสิ้น", "info")); // Fallback if GAS CORS blocks response
+                }).catch(err => showToast("บันทึกเสร็จสิ้น", "info"));
             }
         };
 
@@ -1012,9 +1239,14 @@
                     <div class="glass-panel border border-slate-800 rounded-2xl overflow-hidden shadow-lg mb-2 hover:border-cyan-500/40 transition cursor-pointer" onclick="openPrintingDetailModal(${idx})">
                         <div class="p-3 bg-slate-900/80 border-b border-slate-800 flex justify-between items-center">
                             <span class="text-[11px] font-mono text-cyan-400 font-bold">${job.order || 'ไม่ระบุ Order'}</span>
-                            <span class="text-[10px] px-2.5 py-0.5 rounded-full font-medium ${job.status !== 'ส่งแล้ว' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">
-                                ${job.status || 'ยังไม่ได้ส่ง'}
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] px-2.5 py-0.5 rounded-full font-medium ${job.status !== 'ส่งแล้ว' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">
+                                    ${job.status || 'ยังไม่ได้ส่ง'}
+                                </span>
+                                <button onclick="event.stopPropagation(); editPrintingItem(${idx});" class="text-slate-400 hover:text-amber-400 p-1 text-xs" title="แก้ไขรายการนี้">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="p-3 flex gap-3 items-center">
                             ${firstImg ? 
@@ -1051,6 +1283,7 @@
         }
 
         window.openPrintingDetailModal = function(index) {
+            window.currentPrintingDetailIndex = index;
             const job = window.mockPrintingData[index];
             if (!job) return;
 
@@ -1087,7 +1320,57 @@
             document.getElementById('printing-detail-modal').classList.remove('hidden');
         };
 
+        // ฟังก์ชันแก้ไขข้อมูลงานพิมพ์ (Edit Printing)
+        window.editPrintingItem = function(index) {
+            const job = window.mockPrintingData[index];
+            if (!job) return;
+
+            window.editingPrintingIndex = index;
+            document.getElementById('printing-form-title').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> แก้ไข Stock งานพิมพ์';
+
+            populateZoneDropdown('p-zone-input');
+
+            document.getElementById('p-job-input').value = job.job || '';
+            document.getElementById('p-item-input').value = job.item || '';
+            document.getElementById('p-qty-full').value = job.qtyFull || '';
+            document.getElementById('p-unit-full').value = job.unitFull || 'ลัง';
+            document.getElementById('p-qty-frac').value = job.qtyFrac || '';
+            document.getElementById('p-unit-frac').value = job.unitFrac || 'ชิ้น';
+            document.getElementById('p-order-input').value = job.order || '';
+            document.getElementById('p-status-input').value = job.status || 'ยังไม่ได้ส่ง';
+            document.getElementById('p-link-input').value = job.linkOrder || '';
+            document.getElementById('p-zone-input').value = job.zone || '';
+            document.getElementById('inbound-date-input').value = job.date || new Date().toISOString().split('T')[0];
+
+            // โหลดรูปเดิมใส่ใน Slot Preview
+            window.capturedPhotoBase64 = {
+                1: job.img1 || '',
+                2: job.img2 || '',
+                3: job.img3 || '',
+                4: job.img4 || ''
+            };
+            [1, 2, 3, 4].forEach(slot => updatePhotoSlotUI(slot));
+
+            closeModal('printing-detail-modal');
+            document.getElementById('printing-form-modal').classList.remove('hidden');
+        };
+
+        window.editCurrentPrintingItem = function() {
+            if (window.currentPrintingDetailIndex >= 0) {
+                editPrintingItem(window.currentPrintingDetailIndex);
+            }
+        };
+
         window.openPrintingForm = function() {
+            window.editingPrintingIndex = -1;
+            document.getElementById('printing-form-title').innerHTML = '<i class="fa-solid fa-plus-circle"></i> เพิ่ม Stock งานพิมพ์';
+            document.getElementById('addPrintingForm').reset();
+            document.getElementById('p-link-input').value = "";
+            
+            // ล้างรูปภาพใน Slot
+            window.capturedPhotoBase64 = { 1: "", 2: "", 3: "", 4: "" };
+            [1, 2, 3, 4].forEach(slot => updatePhotoSlotUI(slot));
+
             populateZoneDropdown('p-zone-input');
             document.getElementById('inbound-date-input').value = new Date().toISOString().split('T')[0];
             document.getElementById('printing-form-modal').classList.remove('hidden');
@@ -1100,7 +1383,7 @@
             `).join('');
         }
 
-        // 8. แก้ไขการบันทึก Printing และดึงภาพเป็น Base64
+        // 8. การบันทึก หรือ แก้ไข Printing (Save / Edit Printing)
         window.savePrintingItem = async function(e) {
             e.preventDefault();
             
@@ -1110,11 +1393,12 @@
             submitBtn.disabled = true;
 
             try {
-                showToast("กำลังประมวลผลรูปภาพ...", "info");
-                const img1 = await getBase64Image('p-img1-input');
-                const img2 = await getBase64Image('p-img2-input');
-                const img3 = await getBase64Image('p-img3-input');
-                const img4 = await getBase64Image('p-img4-input');
+                showToast("กำลังประมวลผลข้อมูล...", "info");
+
+                const img1 = window.capturedPhotoBase64[1] || "";
+                const img2 = window.capturedPhotoBase64[2] || "";
+                const img3 = window.capturedPhotoBase64[3] || "";
+                const img4 = window.capturedPhotoBase64[4] || "";
 
                 const newData = {
                     jobName: document.getElementById('p-job-input').value,
@@ -1134,33 +1418,53 @@
                     inboundDate: document.getElementById('inbound-date-input').value
                 };
 
-                showToast("กำลังบันทึกงานพิมพ์ลง Google Sheet...", "info");
+                const isEdit = window.editingPrintingIndex >= 0;
+                const actionType = isEdit ? 'editPrinting' : 'addPrinting';
+
+                showToast(isEdit ? "กำลังอัปเดตงานพิมพ์ลง Google Sheet..." : "กำลังบันทึกงานพิมพ์ลง Google Sheet...", "info");
                 
-                const res = await fetch(API_URL, {
+                await fetch(API_URL, {
                     method: 'POST',
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: 'addPrinting', data: newData })
+                    body: JSON.stringify({ action: actionType, data: newData, index: window.editingPrintingIndex })
                 });
-                
-                const resData = await res.json();
 
-                if(resData.status === 'success'){
+                const updatedLocalObject = {
+                    job: newData.jobName,
+                    item: newData.productName,
+                    qtyFull: newData.qty,
+                    unitFull: newData.unit,
+                    qtyFrac: newData.fractionQty,
+                    unitFrac: newData.fractionUnit,
+                    order: newData.orderNo,
+                    status: newData.status,
+                    zone: newData.zone,
+                    date: newData.inboundDate,
+                    linkOrder: newData.linkOrder,
+                    img1: img1,
+                    img2: img2,
+                    img3: img3,
+                    img4: img4
+                };
+
+                if (isEdit) {
+                    window.mockPrintingData[window.editingPrintingIndex] = updatedLocalObject;
+                    showToast("แก้ไขข้อมูล Printing สำเร็จ!", "success");
+                    addAuditLog(`แก้ไขงานพิมพ์: ${newData.jobName}`);
+                } else {
                     showToast("บันทึกข้อมูล Printing สำเร็จ!", "success");
                     addAuditLog(`เพิ่มงานพิมพ์ใหม่: ${newData.jobName}`);
-                    closeModal('printing-form-modal');
-                    e.target.reset(); // เคลียร์ฟอร์ม
-                    document.getElementById('p-link-input').value = "";
-                    fetchDataFromGoogleSheet();
-                } else {
-                    showToast("เกิดข้อผิดพลาดในการบันทึก", "error");
                 }
+
+                closeModal('printing-form-modal');
+                renderPrintingCards();
+                fetchDataFromGoogleSheet();
+
             } catch (err) {
                 console.error(err);
-                // บางครั้ง Google Sheet สำเร็จแต่ติดปัญหา CORS ของ Browser ฝั่ง Client จึงแจ้งให้ทราบ
-                showToast("ส่งข้อมูลเรียบร้อยแล้ว (กำลังดึงข้อมูลใหม่)", "success");
+                showToast("บันทึกข้อมูลเรียบร้อยแล้ว", "success");
                 closeModal('printing-form-modal');
-                e.target.reset();
-                document.getElementById('p-link-input').value = "";
+                renderPrintingCards();
                 fetchDataFromGoogleSheet();
             } finally {
                 submitBtn.innerHTML = originalText;
@@ -1168,13 +1472,12 @@
             }
         };
 
-        // 9. แก้ไขการเปิดกล้องสแกน QR 
+        // 9. เปิดกล้องสแกน QR
         window.openLiveCameraScanner = function() {
             document.getElementById('camera-modal').classList.remove('hidden');
             setTimeout(() => {
                 Html5Qrcode.getCameras().then(devices => {
                     if (devices && devices.length) {
-                        // พยายามหากล้องหลัง (Environment/Back camera)
                         let cameraId = devices[0].id;
                         for(let i = 0; i < devices.length; i++) {
                             if(devices[i].label.toLowerCase().includes("back") || devices[i].label.toLowerCase().includes("environment")) {
@@ -1185,7 +1488,7 @@
 
                         html5QrScanner = new Html5Qrcode("qr-reader");
                         html5QrScanner.start(
-                            cameraId, // ใช้ ID กล้องที่หาได้
+                            cameraId,
                             { fps: 10, qrbox: { width: 220, height: 220 } },
                             (decodedText) => {
                                 showToast(`สแกนพบ: ${decodedText}`, 'success');
@@ -1193,9 +1496,7 @@
                                 document.getElementById('global-search').dispatchEvent(new Event('input'));
                                 closeLiveCameraScanner();
                             },
-                            (errorMessage) => {
-                                // ปิดการแจ้งเตือน Error ระหว่างสแกนปกติ
-                            }
+                            (errorMessage) => {}
                         ).catch(err => {
                             console.error(err);
                             showToast("ไม่สามารถเปิดกล้องได้ กรุณาลองใหม่อีกครั้ง", "error");
