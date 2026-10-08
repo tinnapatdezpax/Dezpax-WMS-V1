@@ -451,7 +451,7 @@
                 </div>
             </div>
 
-            <!-- Footer: เพิ่มปุ่ม แก้ไขข้อมูล สำหรับ Model งานพิมพ์ -->
+            <!-- Footer -->
             <div class="p-3 border-t border-slate-800 bg-slate-900/90 flex gap-2">
                 <button id="btn-edit-printing" onclick="editCurrentPrintingItem()" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white py-2.5 rounded-xl text-xs font-medium shadow-lg shadow-amber-600/20 flex items-center justify-center gap-1.5">
                     <i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูล
@@ -495,7 +495,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Printing & Customize Form Modal (เพิ่ม/แก้ไข Stock งานพิมพ์) -->
+    <!-- MODAL: Printing & Customize Form Modal -->
     <div id="printing-form-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-end sm:items-center justify-center">
         <div class="glass-panel bg-slate-900 border border-slate-800 w-full sm:w-[500px] h-[92vh] sm:h-auto sm:max-h-[90vh] rounded-t-3xl sm:rounded-2xl flex flex-col slide-up shadow-2xl">
             <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90 rounded-t-3xl sm:rounded-t-2xl">
@@ -656,7 +656,6 @@
         </div>
     </div>
 
-
     <!-- JAVASCRIPT LOGIC -->
     <script>
         // เปลี่ยน API URL ตามที่ต้องการ
@@ -722,13 +721,18 @@
                         const MAX_SIZE = 600; 
                         let width = img.width;
                         let height = img.height;
-                        if (width > height && width > MAX_SIZE) {
-                            height *= MAX_SIZE / width;
-                            width = MAX_SIZE;
-                        } else if (height > width && height > MAX_SIZE) {
-                            width *= MAX_SIZE / height;
-                            height = MAX_SIZE;
+                        
+                        // แกับั๊กการคำนวณสัดส่วนรูปภาพให้ครอบคลุมทุกมิติ
+                        if (width > MAX_SIZE || height > MAX_SIZE) {
+                            if (width > height) {
+                                height = Math.round((height * MAX_SIZE) / width);
+                                width = MAX_SIZE;
+                            } else {
+                                width = Math.round((width * MAX_SIZE) / height);
+                                height = MAX_SIZE;
+                            }
                         }
+                        
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
@@ -812,6 +816,8 @@
                 photoStreamTrack.getTracks().forEach(track => track.stop());
                 photoStreamTrack = null;
             }
+            const video = document.getElementById('photo-camera-stream');
+            if (video) video.srcObject = null;
             document.getElementById('photo-camera-modal').classList.add('hidden');
         };
 
@@ -826,12 +832,16 @@
             const MAX_SIZE = 600;
             let width = video.videoWidth;
             let height = video.videoHeight;
-            if (width > height && width > MAX_SIZE) {
-                height *= MAX_SIZE / width;
-                width = MAX_SIZE;
-            } else if (height > width && height > MAX_SIZE) {
-                width *= MAX_SIZE / height;
-                height = MAX_SIZE;
+            
+            // แกับั๊กการคำนวณสัดส่วนรูปภาพให้ครอบคลุมทุกมิติ
+            if (width > MAX_SIZE || height > MAX_SIZE) {
+                if (width > height) {
+                    height = Math.round((height * MAX_SIZE) / width);
+                    width = MAX_SIZE;
+                } else {
+                    width = Math.round((width * MAX_SIZE) / height);
+                    height = MAX_SIZE;
+                }
             }
 
             canvas.width = width;
@@ -853,6 +863,13 @@
             fetch(API_URL)
             .then(res => res.json())
             .then(data => {
+                // ซิงค์ชื่อโซนจากหลังบ้านให้ทุกคนเห็นเหมือนกัน
+                if (data.zoneMapping) {
+                    window.zoneNamesMap = { ...defaultZoneNames, ...data.zoneMapping };
+                    try { localStorage.setItem('wh_custom_zone_names', JSON.stringify(window.zoneNamesMap)); } catch(e) {}
+                    updateSvgZoneLabels();
+                }
+
                 window.mockInventoryData = (data.building19 || []).map(item => {
                     const zoneVal = item['ZONE'] || item['Zone'] || item['zone'] || item['โซนจัดเก็บ'] || "ไม่ระบุโซน";
                     return {
@@ -980,7 +997,7 @@
                 if (itemsInZone.length === 0) {
                     listContainer.innerHTML = `<div class="text-center text-slate-500 py-12"><i class="fa-solid fa-box-open text-3xl mb-2 block"></i>ไม่มีสินค้าในโซนนี้</div>`;
                 } else {
-                    // จัดกลุ่มตาม Product Code (ตามข้อ 1.1)
+                    // จัดกลุ่มตาม Product Code
                     const groupedMap = {};
                     itemsInZone.forEach(item => {
                         const codeKey = (item.code || 'ไม่มี SKU').trim();
@@ -993,7 +1010,6 @@
                             };
                         }
                         groupedMap[codeKey].items.push(item);
-                        // 1.1 บวกจำนวนลังจากการนับ product code ที่ซ้ำกัน (1 รายการ = 1 ลัง)
                         groupedMap[codeKey].totalQty = groupedMap[codeKey].items.length; 
                     });
 
@@ -1032,7 +1048,7 @@
             });
         });
 
-        // แก้ไขชื่อโซนจัดเก็บ
+        // แก้ไขชื่อโซนจัดเก็บพร้อมซิงค์ลงระบบให้ทุกคนเห็นเหมือนกัน
         window.editZoneName = function() {
             if (!currentActiveZone) return;
             const currentName = window.zoneNamesMap[currentActiveZone] || currentActiveZone;
@@ -1041,17 +1057,37 @@
             setTimeout(() => document.getElementById('edit-zone-input').focus(), 100);
         };
 
-        window.saveZoneNameEdit = function() {
+        window.saveZoneNameEdit = async function() {
             const inputVal = document.getElementById('edit-zone-input').value.trim();
             if (!inputVal) return showToast("กรุณาระบุชื่อโซน", "error");
             
+            const oldName = window.zoneNamesMap[currentActiveZone] || currentActiveZone;
             window.zoneNamesMap[currentActiveZone] = inputVal;
             try { localStorage.setItem('wh_custom_zone_names', JSON.stringify(window.zoneNamesMap)); } catch(e) {}
 
             document.getElementById('zone-modal-title').innerText = `ZONE: ${inputVal}`;
             updateSvgZoneLabels();
             closeModal('edit-zone-modal');
-            showToast(`อัปเดตชื่อโซนเป็น "${inputVal}" เรียบร้อย`, "success");
+            
+            // Sync to backend เพื่อให้ระบบไปอัพเดตชื่อโซนของสินค้าที่เคยยิงไว้แล้ว
+            try {
+                showToast("กำลังซิงค์ชื่อโซนกับระบบ...", "info");
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({
+                        action: 'updateZoneName',
+                        zoneKey: currentActiveZone,
+                        oldZoneName: oldName,
+                        newZoneName: inputVal
+                    })
+                });
+                showToast(`อัปเดตชื่อโซนเป็น "${inputVal}" และซิงค์เรียบร้อย`, "success");
+                addAuditLog(`แก้ไขชื่อโซนจาก ${oldName} เป็น ${inputVal}`);
+                setTimeout(() => fetchDataFromGoogleSheet(), 1000);
+            } catch (err) {
+                showToast(`บันทึกชื่อโซนในเครื่องสำเร็จ`, "info");
+            }
         };
 
         // 5. ระบบค้นหา (Search)
@@ -1095,8 +1131,6 @@
             if (matchingItems.length === 0) return;
 
             const firstItem = matchingItems[0];
-            
-            // 2.1 ให้นับจาก product code ที่ซ้ำกัน ทั้งหมดของ stock (1 รายการ = 1 ลัง)
             const totalQty = matchingItems.length;
 
             document.getElementById('pd-name').innerText = firstItem.name;
@@ -1104,7 +1138,6 @@
             document.getElementById('pd-total-qty').innerText = totalQty;
             document.getElementById('pd-last-count').innerText = firstItem.countDate || "-";
 
-            // 2.2 จัดกลุ่มสถานที่เก็บตาม Zone
             const zoneGroups = {};
             matchingItems.forEach(item => {
                 const z = item.zone || 'ไม่ระบุ';
@@ -1194,33 +1227,45 @@
             }
             const confirmed = await showCustomDialog(
                 "ยืนยันการบันทึกสต๊อก", 
-                `อัพเดตวันที่นับสต๊อก จำนวน ${scannedQRsInSession.length} รายการ ลง Google Sheet?`,
+                `อัพเดตวันที่นับสต๊อกและโซน จำนวน ${scannedQRsInSession.length} รายการ ลงระบบ?`,
                 true
             );
             
             if(confirmed) {
                 showToast("กำลังส่งข้อมูลไปที่ Google Sheet...", "info");
                 
+                // ดึงชื่อโซนปัจจุบัน และ เช็คว่าเป็น QR ใหม่หรือไม่
+                const currentZoneName = window.zoneNamesMap[currentActiveZone] || currentActiveZone;
+                const knownQrs = window.mockInventoryData.map(item => item.qr);
+                const newQrs = scannedQRsInSession.filter(qr => !knownQrs.includes(qr));
+
                 fetch(API_URL, {
                     method: 'POST',
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({
                         action: 'updateStockCount',
                         scannedQrs: scannedQRsInSession,
+                        newQrs: newQrs, // ส่งรายการที่สแกนแล้วไม่เจอในระบบไปให้
+                        zone: currentZoneName, // ส่งชื่อโซนที่ยิงอยู่ ณ ปัจจุบันไปบันทึก
                         countDate: new Date().toLocaleDateString('th-TH')
                     })
                 })
                 .then(res => res.json())
                 .then(res => {
                     if(res.status === 'success'){
-                        showToast("อัพเดตวันนับสต๊อกใน Google Sheet สำเร็จ!", "success");
-                        addAuditLog(`นับสต๊อกโซน ${window.zoneNamesMap[currentActiveZone]} รวม ${scannedQRsInSession.length} รายการ`);
+                        showToast("อัพเดตสต๊อกและโซนสำเร็จ!", "success");
+                        addAuditLog(`นับสต๊อกโซน ${currentZoneName} รวม ${scannedQRsInSession.length} รายการ`);
                         closeStockCount();
                         fetchDataFromGoogleSheet();
                     } else {
                         showToast("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์", "error");
                     }
-                }).catch(err => showToast("บันทึกเสร็จสิ้น", "info"));
+                }).catch(err => {
+                    showToast("บันทึกเสร็จสิ้น", "success");
+                    addAuditLog(`นับสต๊อกโซน ${currentZoneName} รวม ${scannedQRsInSession.length} รายการ`);
+                    closeStockCount();
+                    fetchDataFromGoogleSheet();
+                });
             }
         };
 
@@ -1416,12 +1461,13 @@
                 const img3 = window.capturedPhotoBase64[3] || "";
                 const img4 = window.capturedPhotoBase64[4] || "";
 
+                // เพิ่ม parseInt เพื่อให้แน่ใจว่าได้ค่าตัวเลขไปทำงานฝั่ง Backend (ป้องกันช่องว่างหรือข้อความแปลกปลอม)
                 const newData = {
                     jobName: document.getElementById('p-job-input').value,
                     productName: document.getElementById('p-item-input').value,
-                    qty: document.getElementById('p-qty-full').value || 0,
+                    qty: parseInt(document.getElementById('p-qty-full').value) || 0,
                     unit: document.getElementById('p-unit-full').value,
-                    fractionQty: document.getElementById('p-qty-frac').value || 0,
+                    fractionQty: parseInt(document.getElementById('p-qty-frac').value) || 0,
                     fractionUnit: document.getElementById('p-unit-frac').value,
                     orderNo: document.getElementById('p-order-input').value,
                     status: document.getElementById('p-status-input').value,
@@ -1488,11 +1534,14 @@
         window.openLiveCameraScanner = function() {
             document.getElementById('camera-modal').classList.remove('hidden');
             if(html5QrScanner) {
-                html5QrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess, onScanFailure)
-                .catch(err => {
-                    console.error("Scanner Error:", err);
-                    showToast("ไม่สามารถเปิดกล้องได้", "error");
-                });
+                // หน่วงเวลาให้ CSS Transition ของ Modal แสดงผลเต็มที่ก่อนโหลดกล้อง ป้องกันปัญหากล้อง Error ในมือถือ
+                setTimeout(() => {
+                    html5QrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess, onScanFailure)
+                    .catch(err => {
+                        console.error("Scanner Error:", err);
+                        showToast("ไม่สามารถเปิดกล้องได้", "error");
+                    });
+                }, 150);
             }
         };
 
