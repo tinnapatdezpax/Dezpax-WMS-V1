@@ -1559,15 +1559,69 @@
 
         function onScanFailure(error) { /* Ignore background scanning errors */ }
 
-        // 11. Initial Load
-        document.addEventListener("DOMContentLoaded", () => {
-            html5QrScanner = new Html5Qrcode("qr-reader");
-            updateSvgZoneLabels();
-            setTimeout(() => {
-                showToast("กำลังโหลดข้อมูลเริ่มต้น...", "info");
-                fetchDataFromGoogleSheet();
-            }, 800);
-        });
+// 11. Initial Load & Auto Refresh (Polling)
+document.addEventListener("DOMContentLoaded", () => {
+    html5QrScanner = new Html5Qrcode("qr-reader");
+    updateSvgZoneLabels();
+    
+    // โหลดข้อมูลครั้งแรกเมื่อเปิดหน้าเว็บ
+    setTimeout(() => {
+        showToast("กำลังโหลดข้อมูลเริ่มต้น...", "info");
+        fetchDataFromGoogleSheet();
+    }, 800);
+
+    // 🔄 ดึงข้อมูลอัตโนมัติเบื้องหลังทุกๆ 10 วินาที (10000 ms)
+    setInterval(() => {
+        fetch(API_URL)
+            .then(res => res.json())
+            .then(data => {
+                // ซิงค์ชื่อโซน
+                if (data.zoneMapping) {
+                    window.zoneNamesMap = { ...defaultZoneNames, ...data.zoneMapping };
+                    updateSvgZoneLabels();
+                }
+
+                // อัปเดตข้อมูล Inventory (19 building)
+                window.mockInventoryData = (data.building19 || []).map(item => ({
+                    code: item['product code'] || item['Product code'] || '',
+                    qr: item['QR code'] || item['QR Code'] || '',
+                    name: item['Product name'] || item['Product Name'] || '',
+                    date: item['inbound date'] || '',
+                    countDate: item['stock count date'] || '',
+                    qty: item['Total product'] || 0,
+                    zone: item['ZONE'] || item['Zone'] || item['zone'] || item['โซนจัดเก็บ'] || "ไม่ระบุโซน"
+                }));
+
+                // อัปเดตข้อมูล งานพิมพ์
+                window.mockPrintingData = (data.printing || []).map(item => ({
+                    job: item['ชื่องาน'] || '',
+                    item: item['ชื่อสินค้า'] || '',
+                    qtyFull: item['จำนวน'] || 0,
+                    unitFull: item['หน่วย'] || '',
+                    qtyFrac: item['จำนวนเศษ'] || 0,
+                    unitFrac: item['หน่วยเศษ'] || item['หน่วย_1'] || item['หน่วย'] || '',
+                    order: item['เลขOrder'] || item['เลข Order'] || '',
+                    status: item['สถานะจัดส่ง'] || '',
+                    zone: item['ZONE'] || item['Zone'] || item['โซนจัดเก็บ'] || '',
+                    date: item['วันที่ของเข้า'] || '',
+                    linkOrder: item['link order'] || item['Link Order'] || item['link_order'] || item['Link order'] || '',
+                    img1: item['เพิ่มรูปภาพ(1)'] || item['รูปภาพ 1'] || item['img1'] || '',
+                    img2: item['เพิ่มรูปภาพ(2)'] || item['รูปภาพ 2'] || item['img2'] || '',
+                    img3: item['เพิ่มรูปภาพ(3)'] || item['รูปภาพ 3'] || item['img3'] || '',
+                    img4: item['เพิ่มรูปภาพ(4)'] || item['รูปภาพ 4'] || item['img4'] || ''
+                }));
+
+                // อัปเดตหน้าจอทันทีเฉพาะ Tab ที่เปิดอยู่ (เพื่อไม่ให้หน้าจอกระตุก)
+                const activeView = document.querySelector('main > section:not(.hidden)');
+                if (activeView) {
+                    if (activeView.id === 'view-list') renderInventoryTable();
+                    if (activeView.id === 'view-printing') renderPrintingCards();
+                    if (activeView.id === 'view-logs') renderLogsUI();
+                }
+            })
+            .catch(err => console.error("Auto fetch error:", err));
+    }, 5000); // 10000 มิลลิวินาที = 10 วินาที
+});
 
     </script>
 </body>
